@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "ErrorMsg.h"
+#include "openems_error.h"
 
 ErrorMsg::ErrorMsg(unsigned int NoMessage)
 {
@@ -27,7 +28,7 @@ ErrorMsg::ErrorMsg(unsigned int NoMessage)
 	if (Msg==NULL)
 	{
 		fprintf(stderr,"Memory allocation failed!! exiting...");
-		exit(1);
+		throw openEMS_AllocationError("ErrorMsg: Memory allocation failed for message array");
 	}
 	for (unsigned int i=0; i<NoMsg; i++) Msg[i]=NULL;
 }
@@ -50,7 +51,7 @@ void ErrorMsg::SetMsg(unsigned int nr, const char *Message)
 	if (Msg[nr-1]==NULL)
 	{
 		fprintf(stderr,"Memory allocation failed!! exiting...");
-		exit(1);
+		throw openEMS_AllocationError("ErrorMsg::SetMsg: Memory allocation failed");
 	}
 	Msg[nr-1]=strcpy(Msg[nr-1],Message);
 }
@@ -62,14 +63,12 @@ void ErrorMsg::Error(unsigned int nr,char *chAddMsg)
 		if (Msg[nr-1]!=NULL) fprintf(stderr,"%s",Msg[nr-1]);
 		else fprintf(stderr,"unknown error occurred!! Error code: %d exiting...",nr);
 		if (chAddMsg!=NULL) fprintf(stderr,"%s",chAddMsg);
-		getchar();
-		exit(nr);
+		throw openEMS_InternalError("ErrorMsg::Error: error code " + std::to_string(nr));
 	}
 	else
 	{
 		fprintf(stderr,"unknown error occurred!! Error code: %d exiting...",nr);
-		getchar();
-		exit(nr);
+		throw openEMS_InternalError("ErrorMsg::Error: unknown error code " + std::to_string(nr));
 	}
 }
 
@@ -80,19 +79,17 @@ void ErrorMsg::Error(unsigned int nr,int addNr)
 		if (Msg[nr-1]!=NULL) fprintf(stderr,"%s",Msg[nr-1]);
 		else fprintf(stderr,"unknown error occurred!! Error code: %d exiting...",nr);
 		fprintf(stderr,"%d",addNr);
-		getchar();
-		exit(nr);
+		throw openEMS_InternalError("ErrorMsg::Error: error code " + std::to_string(nr));
 	}
 	else
 	{
 		fprintf(stderr,"unknown error occurred!! Error code: %d exiting...",nr);
-		getchar();
-		exit(nr);
+		throw openEMS_InternalError("ErrorMsg::Error: unknown error code " + std::to_string(nr));
 	}
 }
 
 void ErrorMsg::ownError(void)
 {
 	fprintf(stdout," Error occurred by using Error Message class!! ... exiting...");
-	exit(-1);
+	throw openEMS_InternalError("ErrorMsg::ownError: internal error in ErrorMsg class");
 }

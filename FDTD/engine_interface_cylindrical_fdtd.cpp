@@ -16,6 +16,7 @@
 */
 
 #include "engine_interface_cylindrical_fdtd.h"
+#include "tools/openems_error.h"
 
 using std::cerr;
 using std::endl;
@@ -26,7 +27,7 @@ Engine_Interface_Cylindrical_FDTD::Engine_Interface_Cylindrical_FDTD(Operator_ss
 	if (m_Op_Cyl==NULL)
 	{
 		cerr << "Engine_Interface_Cylindrical_FDTD::Engine_Interface_Cylindrical_FDTD: Error: Operator is not a cylindrical operator! Exit!" << endl;
-		exit(1);
+		throw openEMS_SetupError("Engine_Interface_Cylindrical_FDTD: Operator is not a cylindrical operator");
 	}
 }
 

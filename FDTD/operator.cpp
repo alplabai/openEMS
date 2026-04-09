@@ -36,6 +36,8 @@
 #include "CSPropMaterial.h"
 #include "CSPropLumpedElement.h"
 
+#include "tools/openems_error.h"
+
 using std::cout;
 using std::cerr;
 using std::endl;
@@ -262,22 +264,26 @@ unsigned int Operator::SnapToMeshLine(int ny, double coord, bool &inside, bool d
 	inside=true;
 	if (dualMesh==false)
 	{
-		for (unsigned int n=0;n<numLines;++n)
+		// Binary search on primary mesh dual nodes: find first n where GetDiscLine(ny,n,true) >= coord
+		unsigned int lo = 0, hi = numLines;
+		while (lo < hi)
 		{
-			if (coord<=GetDiscLine(ny,n,true))
-				return n;
+			unsigned int mid = lo + (hi - lo) / 2;
+			if (GetDiscLine(ny, mid, true) < coord)
+				lo = mid + 1;
+			else
+				hi = mid;
 		}
+		return lo < numLines ? lo : numLines - 1;
 	}
 	else
 	{
-		for (unsigned int n=1;n<numLines;++n)
-		{
-			if (coord<=GetDiscLine(ny,n,false))
-				return n-1;
-		}
+		// Binary search on primary mesh nodes: find first n where discLines[n] >= coord, return n-1
+		const double* lines = discLines[ny];
+		const double* it = std::lower_bound(lines + 1, lines + numLines, coord);
+		unsigned int n = static_cast<unsigned int>(it - lines);
+		return (n > 0) ? n - 1 : 0;
 	}
-	//should not happen
-	return 0;
 }
 
 bool Operator::SnapToMesh(const double* dcoord, unsigned int* uicoord, bool dualMesh, bool fullMesh, bool* inside) const
@@ -1439,7 +1445,7 @@ bool Operator::AverageMatCellCenter(
 		{
 			cerr << "Operator::" << __func__ << ": Error, an effective material parameter is not a valid result, this should NOT have happened... exit..." << endl;
 			cerr << ny << "@" << n << " : " << pos[0] << "," << pos[1] << ","  << pos[2] << endl;
-			exit(0);
+			throw openEMS_InternalError("Effective material parameter is NaN or Inf in AverageMatHalfCell");
 		}
 	return true;
 }
@@ -1557,7 +1563,7 @@ bool Operator::AverageMatQuarterCell(
 		{
 			cerr << "Operator::" << __func__ << ": Error, An effective material parameter is not a valid result, this should NOT have happened... exit..." << endl;
 			cerr << ny << "@" << n << " : " << pos[0] << "," << pos[1] << ","  << pos[2] << endl;
-			exit(0);
+			throw openEMS_InternalError("Effective material parameter is NaN or Inf in AverageMatQuarterCell");
 		}
 
 	return true;
@@ -1578,7 +1584,7 @@ bool Operator::Calc_EffMatPos(
 		return AverageMatCellCenter(ny, pos, EffMat, vPrims);
 	default:
 		cerr << "Operator:: " << __func__ << ":  Error, unknown material averaging method... exit" << endl;
-		exit(1);
+		throw openEMS_InternalError("Unknown material averaging method");
 	}
 	return false;
 }
@@ -1932,7 +1938,7 @@ double Operator::CalcTimestep_Var1()
 	if (dT==0)
 	{
 		cerr << "Operator::CalcTimestep: Timestep is zero... this is not supposed to happen!!! exit!" << endl;
-		exit(3);
+		throw openEMS_InternalError("Timestep is zero in CalcTimestep_Var1");
 	}
 	if (g_settings.GetVerboseLevel()>1)
 	{
@@ -2020,7 +2026,7 @@ double Operator::CalcTimestep_Var3()
 	if (dT==0)
 	{
 		cerr << "Operator::CalcTimestep: Timestep is zero... this is not supposed to happen!!! exit!" << endl;
-		exit(3);
+		throw openEMS_InternalError("Timestep is zero in CalcTimestep_Var3");
 	}
 	if (g_settings.GetVerboseLevel()>1)
 	{

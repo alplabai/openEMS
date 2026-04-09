@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include "sar_calculation.h"
+#include "openems_error.h"
 #include "cfloat"
 #include "array_ops.h"
 #include "global.h"
@@ -303,7 +304,7 @@ bool SAR_Calculation::GetCubicalMass(unsigned int pos[3], double box_size, unsig
 	if ((box_size<=0) || std::isnan(box_size) || std::isinf(box_size))
 	{
 		cerr << "SAR_Calculation::GetCubicalMass: critical error: invalid averaging box size: " << box_size << " !! EXIT" << endl;
-		exit(-1);
+		throw openEMS_InternalError("SAR_Calculation::GetCubicalMass: invalid averaging box size");
 	}
 	bool face_valid=true;
 	for (int n=0;n<3;++n)
@@ -637,7 +638,7 @@ float*** SAR_Calculation::CalcAveragedSAR(float*** SAR)
 	if (m_Valid+m_Used+m_Unused+m_AirVoxel!=m_numLines[0]*m_numLines[1]*m_numLines[2])
 	{
 		cerr << "SAR_Calculation::CalcAveragedSAR: critical error, mismatch in voxel status count... EXIT" << endl;
-		exit(1);
+		throw openEMS_InternalError("SAR_Calculation::CalcAveragedSAR: mismatch in voxel status count");
 	}
 
 	if (m_DebugLevel>0)

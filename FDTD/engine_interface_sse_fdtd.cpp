@@ -16,6 +16,7 @@
 */
 
 #include "engine_interface_sse_fdtd.h"
+#include "tools/openems_error.h"
 
 using std::cerr;
 using std::endl;
@@ -27,7 +28,7 @@ Engine_Interface_SSE_FDTD::Engine_Interface_SSE_FDTD(Operator_sse* op) : Engine_
 	if (m_Eng_SSE==NULL)
 	{
 		cerr << "Engine_Interface_SSE_FDTD::Engine_Interface_SSE_FDTD: Error: SSE-Engine is not set! Exit!" << endl;
-		exit(1);
+		throw openEMS_SetupError("Engine_Interface_SSE_FDTD: SSE-Engine is not set");
 	}
 }
 

@@ -19,6 +19,7 @@
 #include "nf2ff_calc.h"
 #include "../tools/array_ops.h"
 #include "../tools/useful.h"
+#include "../tools/scoped_locale.h"
 #include "../tools/hdf5_file_reader.h"
 #include "../tools/hdf5_file_writer.h"
 #include <hdf5.h>
@@ -38,7 +39,7 @@ using namespace std;
 
 nf2ff::nf2ff(vector<float> freq, vector<float> theta, vector<float> phi, vector<float> center, unsigned int numThreads)
 {
-	setlocale(LC_NUMERIC, "en_US.UTF-8");
+	ScopedNumericLocale numericLocale;
 	m_freq = freq;
 
 	m_numTheta = theta.size();
@@ -308,6 +309,7 @@ bool nf2ff::AnalyseXMLNode(TiXmlElement* ti_nf2ff)
 
 bool nf2ff::AnalyseXMLFile(string filename)
 {
+	ScopedNumericLocale numericLocale;
 	TiXmlDocument doc(filename.c_str());
 	if (!doc.LoadFile())
 	{

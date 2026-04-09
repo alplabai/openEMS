@@ -20,6 +20,8 @@
 #include <iostream>
 #include <fstream>
 #include "tools/signal.h"
+#include "tools/scoped_locale.h"
+#include "tools/openems_error.h"
 #include "tools/useful.h"
 #include "FDTD/operator_cylinder.h"
 #include "FDTD/operator_cylindermultigrid.h"
@@ -67,7 +69,6 @@ double CalcDiffTime(timeval t1, timeval t2)
 
 openEMS::openEMS()
 {
-	setlocale(LC_NUMERIC, "en_US.UTF-8");
 	FDTD_Op=NULL;
 	FDTD_Eng=NULL;
 	Eng_Ext_SSD=NULL;
@@ -153,7 +154,7 @@ openEMS::optionDesc()
 				{
 					if (!val) return;
 					showUsage();
-					std::exit(0);
+					throw openEMS_SetupError("--help requested");
 				}
 			),
 			"Show this help message and exit"
@@ -801,6 +802,7 @@ void openEMS::Set_Mur_PhaseVel(int idx, double val)
 
 bool openEMS::ParseFDTDSetup(std::string file)
 {
+	ScopedNumericLocale numericLocale;
 	Reset();
 
 	if (g_settings.GetVerboseLevel()>0)
@@ -810,7 +812,7 @@ bool openEMS::ParseFDTDSetup(std::string file)
 	if (!doc.LoadFile())
 	{
 		cerr << "openEMS: Error File-Loading failed!!! File: " << file << endl;
-		exit(-1);
+		throw openEMS_SetupError("openEMS: XML file loading failed: " + file);
 	}
 
 	if (g_settings.GetVerboseLevel()>0)
@@ -819,14 +821,14 @@ bool openEMS::ParseFDTDSetup(std::string file)
 	if (openEMSxml==NULL)
 	{
 		cerr << "Can't read openEMS ... " << endl;
-		exit(-1);
+		throw openEMS_SetupError("openEMS: Can't find openEMS element in XML");
 	}
 	TiXmlElement* FDTD_Opts = openEMSxml->FirstChildElement("FDTD");
 
 	if (FDTD_Opts==NULL)
 	{
 		cerr << "Can't read openEMS FDTD Settings... " << endl;
-		exit(-1);
+		throw openEMS_SetupError("openEMS: Can't find FDTD settings in XML");
 	}
 
 	if (g_settings.GetVerboseLevel()>0)
@@ -885,7 +887,7 @@ bool openEMS::Parse_XML_FDTDSetup(TiXmlElement* FDTD_Opts)
 	if (BC==NULL)
 	{
 		cerr << "Can't read openEMS boundary cond Settings... " << endl;
-		exit(-3);
+		throw openEMS_SetupError("openEMS: Can't find boundary condition settings in XML");
 	}
 
 //	const char* tmp = BC->Attribute("PML_Grading");
@@ -1066,7 +1068,7 @@ bool openEMS::Write2XML(TiXmlNode* rootNode)
 
 bool openEMS::Write2XML(std::string file)
 {
-	setlocale(LC_NUMERIC, "en_US.UTF-8");
+	ScopedNumericLocale numericLocale;
 	TiXmlDocument doc(file);
 	doc.InsertEndChild(TiXmlDeclaration("1.0","UTF-8","yes"));
 
@@ -1271,7 +1273,7 @@ int openEMS::SetupFDTD()
 		NrTS = maxTime_TS;
 
 	if (!m_Exc->buildExcitationSignal(NrTS))
-		exit(2);
+		throw openEMS_SetupError("openEMS: Failed to build excitation signal");
 	m_Exc->DumpVoltageExcite("et");
 	m_Exc->DumpCurrentExcite("ht");
 

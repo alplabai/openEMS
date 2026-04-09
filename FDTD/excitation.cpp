@@ -16,6 +16,8 @@
 */
 
 #include "tools/useful.h"
+#include "tools/scoped_locale.h"
+#include "tools/openems_error.h"
 #include <iostream>
 #include <fstream>
 #include "fparser.hh"
@@ -227,7 +229,7 @@ void Excitation::CalcCustomExcitation(double f0, int nTS, string signal)
 	delete[] Signal_curr;
 	Signal_volt = new FDTD_FLOAT[Length];
 	Signal_curr = new FDTD_FLOAT[Length];
-	setlocale(LC_NUMERIC, "en_US.UTF-8");
+	ScopedNumericLocale numericLocale;
 	FunctionParser fParse;
 	fParse.AddConstant("pi", 3.14159265358979323846);
 	fParse.AddConstant("e", 2.71828182845904523536);
@@ -235,7 +237,7 @@ void Excitation::CalcCustomExcitation(double f0, int nTS, string signal)
 	if (fParse.GetParseErrorType()!=FunctionParser::FP_NO_ERROR)
 	{
 		cerr << "Operator::CalcCustomExcitation: Function Parser error: " << fParse.ErrorMsg() << endl;
-		exit(1);
+		throw openEMS_SetupError("CalcCustomExcitation: Function Parser error: " + std::string(fParse.ErrorMsg()));
 	}
 	double vars[1];
 	for (unsigned int n=0; n<Length; ++n)

@@ -18,6 +18,7 @@
 #include "FDTD/engine.h"
 #include "engine_ext_cylindermultigrid.h"
 #include "FDTD/engine_cylindermultigrid.h"
+#include "tools/openems_error.h"
 
 using std::cerr;
 using std::endl;
@@ -48,7 +49,7 @@ void Engine_Ext_CylinderMultiGrid::SetEngine(Engine* eng)
 	if (m_Eng_MG==NULL)
 	{
 		cerr << "Engine_Ext_CylinderMultiGrid::SetEngine(): Error" << endl;
-		exit(0);
+		throw openEMS_SetupError("Engine_Ext_CylinderMultiGrid::SetEngine: engine is not a CylinderMultiGrid engine");
 	}
 }
 

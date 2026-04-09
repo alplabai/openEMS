@@ -18,6 +18,7 @@
 using namespace std;
 
 #include "vtk_file_writer.h"
+#include "openems_error.h"
 
 #include <vtkRectilinearGrid.h>
 #include <vtkRectilinearGridWriter.h>
@@ -71,7 +72,7 @@ void VTK_File_Writer::SetMeshLines(double const* const* lines, unsigned int cons
 		if (RectGrid==NULL)
 		{
 			cerr << "VTK_File_Writer::SetMeshLines: Error, grid invalid, this should not have happened! " << endl;
-			exit(1);
+			throw openEMS_InternalError("VTK_File_Writer::SetMeshLines: Cartesian grid cast failed");
 		}
 		RectGrid->SetDimensions(count[0],count[1],count[2]);
 		vtkDoubleArray *Coords[3];
@@ -98,7 +99,7 @@ void VTK_File_Writer::SetMeshLines(double const* const* lines, unsigned int cons
 		if (StructGrid==NULL)
 		{
 			cerr << "VTK_File_Writer::SetMeshLines: Error, grid invalid, this should not have happened! " << endl;
-			exit(1);
+			throw openEMS_InternalError("VTK_File_Writer::SetMeshLines: Cylindrical grid cast failed");
 		}
 
 		for (int n=0;n<3;++n)

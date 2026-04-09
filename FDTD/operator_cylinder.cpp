@@ -22,6 +22,7 @@
 #include "extensions/operator_extension.h"
 #include "extensions/operator_ext_cylinder.h"
 #include "tools/useful.h"
+#include "tools/openems_error.h"
 
 using std::cout;
 using std::cerr;
@@ -526,7 +527,7 @@ bool Operator_Cylinder::SetupCSXGrid(CSRectGrid* grid)
 			if (m_OrigDiscLines[0][0]==0)
 			{
 				cerr << "Operator_Cylinder::SetupCSXGrid: Error: MPI split in alpha direction for closed cylinder including r==0 is currently not supported! Exit!" << endl;
-				exit(-2);
+				throw openEMS_SetupError("Operator_Cylinder: MPI split in alpha direction for closed cylinder including r==0 is not supported");
 			}
 
 			if (m_NeighborUp[1]<0) //check if this process is at the alpha-end

@@ -27,6 +27,7 @@
 #include <boost/fusion/include/list_fwd.hpp>
 
 #include "tools/useful.h"
+#include <atomic>
 #if defined(_WIN32) && !defined(__GNUC__)
 #include <Winsock2.h> // for struct timeval
 #else
@@ -116,10 +117,10 @@ protected:
 	boost::thread_group *m_thread_group;
 	boost::barrier *m_startBarrier, *m_stopBarrier;
 	boost::barrier *m_IterateBarrier;
-	volatile unsigned int m_iterTS;
+	std::atomic<unsigned int> m_iterTS;
 	unsigned int m_numThreads; //!< number of worker threads
 	unsigned int m_max_numThreads; //!< max. number of worker threads
-	volatile bool m_stopThreads;
+	std::atomic<bool> m_stopThreads;
 	bool m_opt_speed;
 	float m_last_speed;
 

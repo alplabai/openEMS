@@ -210,7 +210,7 @@ void Engine_CylinderMultiGrid::InterpolCurrChild2Base(unsigned int rPos)
 #endif
 
 /****************************************************************************************/
-Engine_CylinderMultiGrid_Thread::Engine_CylinderMultiGrid_Thread( Engine_Multithread* engine, boost::barrier *start, boost::barrier *stop, volatile unsigned int* numTS, bool isBase)
+Engine_CylinderMultiGrid_Thread::Engine_CylinderMultiGrid_Thread( Engine_Multithread* engine, boost::barrier *start, boost::barrier *stop, std::atomic<unsigned int>* numTS, bool isBase)
 {
 	m_startBarrier = start;
 	m_stopBarrier = stop;

@@ -16,6 +16,7 @@
 */
 
 #include "array_ops.h"
+#include "openems_error.h"
 #include <ostream>
 
 using namespace std;
@@ -71,7 +72,7 @@ f4vector* Create1DArray_v4sf(const unsigned int numLines)
 	if (MEMALIGN( (void**)&array, 16, F4VECTOR_SIZE*numLines ))
 	{
 		cerr << "cannot allocate aligned memory" << endl;
-		exit(3);
+		throw openEMS_AllocationError("cannot allocate aligned memory");
 	}
 	for (unsigned int pos=0; pos<numLines; ++pos)
 	{
@@ -93,7 +94,7 @@ f4vector*** Create3DArray_v4sf(const unsigned int* numLines)
 	if (MEMALIGN( (void**)&array, 16, F4VECTOR_SIZE*numLines[0] ))
 	{
 		cerr << "cannot allocate aligned memory" << endl;
-		exit(3);
+		throw openEMS_AllocationError("cannot allocate aligned memory");
 	}
 	//array = new f4vector**[numLines[0]];
 	for (pos[0]=0; pos[0]<numLines[0]; ++pos[0])
@@ -101,7 +102,7 @@ f4vector*** Create3DArray_v4sf(const unsigned int* numLines)
 		if (MEMALIGN( (void**)&array[pos[0]], 16, F4VECTOR_SIZE*numLines[1] ))
 		{
 			cerr << "cannot allocate aligned memory" << endl;
-			exit(3);
+			throw openEMS_AllocationError("cannot allocate aligned memory");
 		}
 		//array[pos[0]] = new f4vector*[numLines[1]];
 		for (pos[1]=0; pos[1]<numLines[1]; ++pos[1])
@@ -109,7 +110,7 @@ f4vector*** Create3DArray_v4sf(const unsigned int* numLines)
 			if (MEMALIGN( (void**)&array[pos[0]][pos[1]], 16, F4VECTOR_SIZE*numZ ))
 			{
 				cerr << "cannot allocate aligned memory" << endl;
-				exit(3);
+				throw openEMS_AllocationError("cannot allocate aligned memory");
 			}
 			//array[pos[0]][pos[1]] = new f4vector[numZ];
 			for (pos[2]=0; pos[2]<numZ; ++pos[2])
@@ -130,7 +131,7 @@ f4vector**** Create_N_3DArray_v4sf(const unsigned int* numLines)
 	if (MEMALIGN( (void**)&array, 16, F4VECTOR_SIZE*3 ))
 	{
 		cerr << "cannot allocate aligned memory" << endl;
-		exit(3);
+		throw openEMS_AllocationError("cannot allocate aligned memory");
 	}
 	//array = new f4vector***[3];
 	for (int n=0; n<3; ++n)

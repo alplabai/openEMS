@@ -18,13 +18,14 @@
 #include "operator_ext_upml.h"
 #include "FDTD/operator_cylindermultigrid.h"
 #include "engine_ext_upml.h"
+#include "tools/scoped_locale.h"
 #include "fparser.hh"
 
 using namespace std;
 
 Operator_Ext_UPML::Operator_Ext_UPML(Operator* op) : Operator_Extension(op)
 {
-	setlocale(LC_NUMERIC, "en_US.UTF-8");
+	ScopedNumericLocale numericLocale;
 	m_GradingFunction = new FunctionParser();
 	//default grading function
 	SetGradingFunction(" -log(1e-6)*log(2.5)/(2*dl*Z*(pow(2.5,W/dl)-1)) * pow(2.5, D/dl) ");

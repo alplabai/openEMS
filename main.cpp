@@ -29,6 +29,7 @@
 #endif
 
 #include "tools/global.h"
+#include "tools/openems_error.h"
 
 #ifndef GIT_VERSION
 #define GIT_VERSION "unknown:compiled@" __DATE__
@@ -55,24 +56,32 @@ int main(int argc, const char* argv[])
 	if (argc<=1)
 	{
 		FDTD.showUsage();
-		exit(-1);
+		return 1;
 	}
 
-	g_settings.parseCommandLineArguments(argc, argv);
+	try
+	{
+		g_settings.parseCommandLineArguments(argc, argv);
 
-	int EC = FDTD.ParseFDTDSetup(argv[1]);
-	if(!EC) {
-	  cerr << "openEMS - ParseFDTDSetup failed." << endl;
-	  exit(1);
+		int EC = FDTD.ParseFDTDSetup(argv[1]);
+		if(!EC) {
+		  cerr << "openEMS - ParseFDTDSetup failed." << endl;
+		  return 1;
+		}
+		EC = FDTD.SetupFDTD();
+		if (EC) return EC;
+		FDTD.RunFDTD();
 	}
-	EC = FDTD.SetupFDTD();
-	if (EC) exit(EC);
-	FDTD.RunFDTD();
+	catch (const openEMS_Exception& e)
+	{
+		cerr << "openEMS fatal error: " << e.what() << endl;
+		return 1;
+	}
 
 #ifdef MPI_SUPPORT
 	FDTD.Reset(); //make sure everything is cleaned-up before calling MPI::Finalize()
 	MPI::Finalize();
 #endif
 
-	exit(0);
+	return 0;
 }

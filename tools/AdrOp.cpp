@@ -16,6 +16,7 @@
 */
 
 #include "AdrOp.h"
+#include "openems_error.h"
 
 using namespace std;
 
@@ -26,7 +27,7 @@ AdrOp::AdrOp(unsigned int muiImax, unsigned int muiJmax, unsigned int muiKmax, u
 	if (error==NULL)
 	{
 		fprintf(stderr,"Memory allocation failed!! exiting...");
-		exit(1);
+		throw openEMS_AllocationError("AdrOp: Memory allocation failed for ErrorMsg");
 	}
 	error->SetMsg(1,"Adress Operator: Memory allocation failed!! exiting...");
 	error->SetMsg(2,"Adress Operator: Invalid Adress requested!! exiting...");
@@ -45,9 +46,9 @@ AdrOp::AdrOp(unsigned int muiImax, unsigned int muiJmax, unsigned int muiKmax, u
 
 	uiDimension=0;
 	if (muiImax>0) uiDimension++;
-	else exit(-1);
+	else throw openEMS_SetupError("AdrOp: muiImax<=0 invalid dimension");
 	if (muiJmax>0) uiDimension++;
-	else exit(-2);
+	else throw openEMS_SetupError("AdrOp: muiJmax<=0 invalid dimension");
 	if (muiKmax>0) uiDimension++;
 	if ( (muiLmax>0) && (muiKmax>0) ) uiDimension++;
 //	cout << "\n-----Adress Operator created: Dimension: " << uiDimension << "----" <<endl;
@@ -545,8 +546,7 @@ unsigned int deltaAdrOp::GetAdr(int pos)
 	if ((pos<0) || (pos>(int)uiMax-1))
 	{
 		fprintf(stderr," Error exiting... ");
-		getchar();
-		exit(-1);
+		throw openEMS_InternalError("deltaAdrOp::GetAdr: invalid position");
 	}
 	return pos;
 }

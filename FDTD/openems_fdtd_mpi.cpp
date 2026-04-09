@@ -16,6 +16,7 @@
 */
 
 #include "openems_fdtd_mpi.h"
+#include "tools/openems_error.h"
 #include "FDTD/engine_interface_fdtd.h"
 #include "FDTD/operator_mpi.h"
 #include "FDTD/operator_cylinder.h"
@@ -145,7 +146,7 @@ bool openEMS_FDTD_MPI::Parse_XML_FDTDSetup(TiXmlElement* FDTD_Opts)
 		MPI_Barrier(MPI_COMM_WORLD);
 		if (m_MyID==0)
 			cerr << "openEMS_FDTD_MPI::SetupMPI: Error: no MPI settings found, exiting MPI engine... " << endl;
-		exit(-1);
+		throw openEMS_SetupError("openEMS_FDTD_MPI: no MPI settings found");
 	}
 
 	CSRectGrid* grid = m_CSX->GetGrid();
@@ -211,7 +212,7 @@ bool openEMS_FDTD_MPI::SetupMPI()
 	{
 		if (m_MyID==0)
 			cerr << "openEMS_FDTD_MPI::SetupMPI: Error: Requested splits require " << numProcs << " processes, but " << m_NumProc << " were found! Exit! " << endl;
-		exit(10);
+		throw openEMS_SetupError("openEMS_FDTD_MPI: MPI process count mismatch");
 	}
 
 	//create process table
@@ -317,7 +318,7 @@ bool openEMS_FDTD_MPI::SetupOperator()
 	{
 		cerr << "openEMS_FDTD_MPI::SetupOperator: Error: MPI is enabled but requested engine does not support MPI... EXIT!!!" << endl;
 		MPI_Barrier(MPI_COMM_WORLD);
-		exit(0);
+		throw openEMS_SetupError("openEMS_FDTD_MPI: MPI enabled but operator does not support MPI");
 	}
 
 	ret &= SetupMPI();

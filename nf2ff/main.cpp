@@ -32,7 +32,7 @@ int main(int argc, char *argv[])
 	{
 		cout << " Usage: nf2ff <nf2ff-xml-file>" << endl << endl;
 		cout << endl;
-		exit(-1);
+		return 1;
 	}
 
 	if (argc>=2)

@@ -19,6 +19,7 @@
 #define ENGINE_CYLINDERMULTIGRID_H
 
 #include "engine_cylinder.h"
+#include <atomic>
 
 class Operator_CylinderMultiGrid;
 class Engine_CylinderMultiGrid_Thread;
@@ -47,7 +48,7 @@ protected:
 
 	Engine_Multithread* m_InnerEngine;
 
-	volatile unsigned int m_Thread_NumTS;
+	std::atomic<unsigned int> m_Thread_NumTS;
 	boost::thread_group m_IteratorThread_Group;
 	boost::barrier *m_startBarrier;
 	boost::barrier *m_stopBarrier;
@@ -71,7 +72,7 @@ protected:
 class Engine_CylinderMultiGrid_Thread
 {
 public:
-	Engine_CylinderMultiGrid_Thread( Engine_Multithread* engine, boost::barrier *start, boost::barrier *stop, volatile unsigned int* numTS, bool isBase);
+	Engine_CylinderMultiGrid_Thread( Engine_Multithread* engine, boost::barrier *start, boost::barrier *stop, std::atomic<unsigned int>* numTS, bool isBase);
 	void operator()();
 
 protected:
@@ -79,7 +80,7 @@ protected:
 	bool m_isBase;
 	boost::barrier *m_startBarrier;
 	boost::barrier *m_stopBarrier;
-	volatile unsigned int *m_numTS;
+	std::atomic<unsigned int> *m_numTS;
 };
 
 #endif // ENGINE_CYLINDERMULTIGRID_H

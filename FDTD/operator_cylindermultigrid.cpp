@@ -19,6 +19,7 @@
 #include "engine_cylindermultigrid.h"
 #include "extensions/operator_ext_cylinder.h"
 #include "tools/useful.h"
+#include "tools/openems_error.h"
 #include "CSUseful.h"
 
 using std::cout;
@@ -82,7 +83,7 @@ bool Operator_CylinderMultiGrid::SetupCSXGrid(CSRectGrid* grid)
 	if ((numLines[1]-CC_closedAlpha)%2 != 1)
 	{
 		cerr << "Operator_CylinderMultiGrid::SetupCSXGrid: Error, number of line in alpha direction must be odd... found: " << numLines[1] << endl;
-		exit(0);
+		throw openEMS_SetupError("Operator_CylinderMultiGrid: number of lines in alpha direction must be odd");
 	}
 
 	m_Split_Pos = 0;
@@ -179,7 +180,7 @@ void Operator_CylinderMultiGrid::SetNeighborUp(int ny, int id)
 	{
 		cerr << "Operator_CylinderMultiGrid::SetNeighborUp: Error: MPI segregation in radial direction not supported for a cylindircal multigrid. Exit!";
 		MPI_Barrier(MPI_COMM_WORLD);
-		exit(-1);
+		throw openEMS_SetupError("Operator_CylinderMultiGrid: MPI segregation in radial direction not supported for cylindrical multigrid");
 	}
 	Operator_Cylinder::SetNeighborUp(ny,id);
 	m_InnerOp->SetNeighborUp(ny,id);
@@ -191,7 +192,7 @@ void Operator_CylinderMultiGrid::SetNeighborDown(int ny, int id)
 	{
 		cerr << "Operator_CylinderMultiGrid::SetNeighborDown: Error: MPI segregation in radial direction not supported for a cylindircal multigrid. Exit!";
 		MPI_Barrier(MPI_COMM_WORLD);
-		exit(-1);
+		throw openEMS_SetupError("Operator_CylinderMultiGrid: MPI segregation in radial direction not supported for cylindrical multigrid");
 	}
 	Operator_Cylinder::SetNeighborDown(ny,id);
 	m_InnerOp->SetNeighborDown(ny,id);
