@@ -52,6 +52,8 @@ bool Operator_Ext_ConductingSheet::BuildExtension()
 	ArrayLib::ArrayNIJK<int8_t> tanDir("tanDir", numLines);
 	ArrayLib::ArrayNIJK<float> Conductivity("Conductivity", numLines);
 	ArrayLib::ArrayNIJK<float> Thickness("Thickness", numLines);
+	ArrayLib::ArrayNIJK<float> RoughSR("RoughSR", numLines);
+	ArrayLib::ArrayNIJK<float> RoughRF("RoughRF", numLines);
 
 	CSPrimitives* cs_sheet = NULL;
 	double box[6];
@@ -84,6 +86,8 @@ bool Operator_Ext_ConductingSheet::BuildExtension()
 					tanDir(n, pos[0], pos[1], pos[2]) = -1; //deactivate by default
 					Conductivity(n, pos[0], pos[1], pos[2]) = 0; //deactivate by default
 					Thickness(n, pos[0], pos[1], pos[2]) = 0; //deactivate by default
+					RoughSR(n, pos[0], pos[1], pos[2]) = 0;
+					RoughRF(n, pos[0], pos[1], pos[2]) = 1.0;
 
 					if (m_Op->GetYeeCoords(n,pos,coord,false)==false)
 						continue;
@@ -119,6 +123,8 @@ bool Operator_Ext_ConductingSheet::BuildExtension()
 
 						Conductivity(n, pos[0], pos[1], pos[2]) = cs_prop->GetConductivity();
 						Thickness(n, pos[0], pos[1], pos[2]) = cs_prop->GetThickness();
+						RoughSR(n, pos[0], pos[1], pos[2]) = cs_prop->GetRoughnessSR();
+						RoughRF(n, pos[0], pos[1], pos[2]) = cs_prop->GetRoughnessRF();
 
 						if ((Conductivity(n, pos[0], pos[1], pos[2])<=0) || (Thickness(n, pos[0], pos[1], pos[2])<=0))
 						{
@@ -241,6 +247,19 @@ bool Operator_Ext_ConductingSheet::BuildExtension()
 				R1 = r1[optParaPos]/G0*factor;
 				R2 = r2[optParaPos]/G0*factor;
 				G = G0*g[optParaPos]/factor;
+
+				// Huray roughness correction: increase resistance at high frequencies
+				float sr = RoughSR(n, pos[0], pos[1], pos[2]);
+				float rf = RoughRF(n, pos[0], pos[1], pos[2]);
+				if (sr > 0 && rf > 1.0)
+				{
+					float sigma = Conductivity(n, pos[0], pos[1], pos[2]);
+					float w_char = w0 * omega_stop[optParaPos] * 0.5;
+					float delta_s = sqrt(2.0 / (w_char * __MUE0__ * sigma));
+					float K_rough = 1.0 + (rf - 1.0) * sr / delta_s;
+					R1 *= K_rough;
+					R2 *= K_rough;
+				}
 
 				L1*=wtl;
 				L2*=wtl;
