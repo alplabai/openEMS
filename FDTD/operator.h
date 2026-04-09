@@ -134,7 +134,7 @@ public:
 	//! Set a forced timestep to use by the operator
 	virtual void SetTimestep(double ts) {dT = ts;}
 	virtual void SetTimestepFactor(double factor);
-	bool GetTimestepValid() const {return !m_InvaildTimestep;}
+	bool GetTimestepValid() const {return !m_InvalidTimestep;}
 
 	//! Choose a time step method (0=auto, 1=CFL, 3=Rennings)
 	void SetTimeStepMethod(int var) {m_TimeStepVar=var;}
@@ -267,7 +267,7 @@ protected:
 	double m_TimeStepFactor;
 	virtual double CalcTimestep();
 	double opt_dT;
-	bool m_InvaildTimestep;
+	bool m_InvalidTimestep;
 	std::string m_Used_TS_Name;
 
 	double CalcTimestep_Var1();

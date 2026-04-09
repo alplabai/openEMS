@@ -102,6 +102,7 @@ void Engine_Ext_SteadyState::Apply2Voltages()
 		if ((no_valid) || (m_last_max_diff>1))
 			m_last_max_diff = 1;
 		delete[] curr_pow; curr_pow = NULL;
+		delete[] diff_pow; diff_pow = NULL;
 		//cerr << m_last_max_diff << endl;
 	}
 }

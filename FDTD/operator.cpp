@@ -52,7 +52,7 @@ Operator* Operator::New()
 Operator::Operator() : Operator_Base()
 {
 	m_Exc = 0;
-	m_InvaildTimestep = false;
+	m_InvalidTimestep = false;
 	m_TimeStepVar = 3;
 }
 
@@ -514,8 +514,8 @@ double Operator::GetNumberCells() const
 
 void Operator::ShowStat() const
 {
-	unsigned int OpSize = 12*numLines[0]*numLines[1]*numLines[2]*sizeof(FDTD_FLOAT);
-	unsigned int FieldSize = 6*numLines[0]*numLines[1]*numLines[2]*sizeof(FDTD_FLOAT);
+	size_t OpSize = (size_t)12*numLines[0]*numLines[1]*numLines[2]*sizeof(FDTD_FLOAT);
+	size_t FieldSize = (size_t)6*numLines[0]*numLines[1]*numLines[2]*sizeof(FDTD_FLOAT);
 	double MBdiff = 1024*1024;
 
 	cout << "------- Stat: FDTD Operator -------" << endl;
@@ -991,7 +991,7 @@ int Operator::CalcECOperator( DebugFlags debugFlags )
 	if (Calc_EC()==0)
 		return -1;
 
-	m_InvaildTimestep = false;
+	m_InvalidTimestep = false;
 	opt_dT = 0;
 	if (dT>0)
 	{
@@ -1001,7 +1001,7 @@ int Operator::CalcECOperator( DebugFlags debugFlags )
 		if (dT<save_dT)
 		{
 			cerr << "Operator::CalcECOperator: Warning, forced timestep: " << save_dT << "s is larger than calculated timestep: " << dT << "s! It is not recommended using this timestep!! " << endl;
-			m_InvaildTimestep = true;
+			m_InvalidTimestep = true;
 		}
 
 		dT = save_dT;

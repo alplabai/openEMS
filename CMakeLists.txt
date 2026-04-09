@@ -1,4 +1,12 @@
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
+
+# Enable compiler warnings
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  add_compile_options(-Wall -Wextra -Wno-unused-parameter -Wno-sign-compare)
+endif()
+if(MSVC)
+  add_compile_options(/W3)
+endif()
 
 # define build type
 IF( DEFINED CMAKE_BUILD_TYPE )
