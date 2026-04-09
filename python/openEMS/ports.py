@@ -23,6 +23,7 @@ from CSXCAD.Utilities import CheckNyDir
 from openEMS import utilities
 
 from openEMS.physical_constants import *
+from openEMS.touchstone import write_touchstone, ports_to_touchstone
 
 class UI_data:
     def __init__(self, fns, path, freq, signal_type='pulse', **kw):
