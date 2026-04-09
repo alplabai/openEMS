@@ -23,46 +23,58 @@
 #include <complex>
 #include <hdf5.h>
 
+#include "arraylib/array_nijk.h"
+#include "arraylib/array_ijk.h"
+
+#define OPENEMS_HDF5_VERSION 0.3
+
 class HDF5_File_Writer
 {
 public:
 	HDF5_File_Writer(std::string filename);
 	~HDF5_File_Writer();
 
-	bool WriteRectMesh(unsigned int const* numLines, double const* const* discLines, int MeshType=0, double scaling=1);
-	bool WriteRectMesh(unsigned int const* numLines, float const* const* discLines, int MeshType=0, float scaling=1);
+	bool WriteRectMesh(unsigned int const* numLines, double const* const* discLines, int MeshType=0, double scaling=1, std::string s_mesh_grp="/Mesh");
+	bool WriteRectMesh(unsigned int const* numLines, float const* const* discLines, int MeshType=0, double scaling=1, std::string s_mesh_grp="/Mesh");
 
-	bool WriteScalarField(std::string dataSetName, float const* const* const* field, size_t datasize[3]);
-	bool WriteScalarField(std::string dataSetName, double const* const* const* field, size_t datasize[3]);
+	template <typename T>
+	bool WriteScalarField(std::string dataSetName, ArrayLib::ArrayIJK<T> &data, bool legacy_fmt=false);
 
-	bool WriteScalarField(std::string dataSetName, std::complex<float> const* const* const* field, size_t datasize[3]);
-	bool WriteScalarField(std::string dataSetName, std::complex<double> const* const* const* field, size_t datasize[3]);
+	template <typename T>
+	bool WriteVectorField(std::string dataSetName, ArrayLib::ArrayNIJK<T> &data, bool legacy_fmt=false);
 
-	bool WriteVectorField(std::string dataSetName, float const* const* const* const* field, size_t datasize[3]);
-	bool WriteVectorField(std::string dataSetName, double const* const* const* const* field, size_t datasize[3]);
 
-	bool WriteVectorField(std::string dataSetName, std::complex<float> const* const* const* const* field, size_t datasize[3]);
-	bool WriteVectorField(std::string dataSetName, std::complex<double> const* const* const* const* field, size_t datasize[3]);
+	bool WriteData(std::string dataSetName, float const* field_buf, size_t dim, size_t* datasize, std::string d_order="");
+	bool WriteData(std::string dataSetName, double const* field_buf, size_t dim, size_t* datasize, std::string d_order="");
+	bool WriteData(std::string dataSetName, std::complex<float> const* field_buf, size_t dim, size_t* datasize, std::string d_order="");
+	bool WriteData(std::string dataSetName, std::complex<double> const* field_buf, size_t dim, size_t* datasize, std::string d_order="");
 
-	bool WriteData(std::string dataSetName, float const* field_buf, size_t dim, size_t* datasize);
-	bool WriteData(std::string dataSetName, double const* field_buf, size_t dim, size_t* datasize);
-
-	bool WriteAtrribute(std::string locName, std::string attr_name, void const* value, hsize_t size, hid_t mem_type);
 	bool WriteAtrribute(std::string locName, std::string attr_name, float const* value, hsize_t size);
 	bool WriteAtrribute(std::string locName, std::string attr_name, double const* value, hsize_t size);
 	bool WriteAtrribute(std::string locName, std::string attr_name, std::vector<float> values);
 	bool WriteAtrribute(std::string locName, std::string attr_name, std::vector<double> values);
+	bool WriteAtrribute(std::string locName, std::string attr_name, std::vector<int> values);
+	bool WriteAtrribute(std::string locName, std::string attr_name, std::vector<unsigned int> values);
 	bool WriteAtrribute(std::string locName, std::string attr_name, float value);
 	bool WriteAtrribute(std::string locName, std::string attr_name, double value);
+	bool WriteAtrribute(std::string locName, std::string attr_name, int value);
+	bool WriteAtrribute(std::string locName, std::string attr_name, unsigned int value);
+	bool WriteAtrribute(std::string locName, std::string attr_name, size_t value);
+	bool WriteAtrribute(std::string locName, std::string attr_name, std::string value);
+	bool WriteAtrribute(std::string locName, std::string attr_name, bool value);
 
 	void SetCurrentGroup(std::string group, bool createGrp=true);
+
+	bool WriteData(std::string dataSetName, hid_t mem_type, void const* field_buf, size_t dim, size_t* datasize, std::string d_order="");
+	bool WriteAtrribute(std::string locName, std::string attr_name, void const* value, hsize_t size, hid_t mem_type);
 
 protected:
 	std::string m_filename;
 	std::string m_Group;
 
 	hid_t OpenGroup(hid_t hdf5_file, std::string group);
-	bool WriteData(std::string dataSetName, hid_t mem_type, void const* field_buf, size_t dim, size_t* datasize);
+	bool WriteData(hid_t group, std::string dataSetName, hid_t mem_type, void const* field_buf, size_t dim, size_t* datasize, std::string d_order="");
+	bool WriteAtrribute(hid_t loc, std::string attr_name, void const* value, hsize_t size, hid_t mem_type);
 };
 
 #endif // HDF5_FILE_WRITER_H

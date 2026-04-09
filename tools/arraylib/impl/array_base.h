@@ -60,6 +60,7 @@ protected:
 	using AllocatorType = Allocator;
 
 	std::string m_name="";
+	bool m_swapped=false; // record if swapped axis
 	std::array<IndexType, rank> m_extent = {};
 	std::array<IndexType, rank> m_stride = {};
 	IndexType m_size=0, m_bytes=0;
@@ -108,6 +109,19 @@ public:
 	IndexType                   extent(IndexType n) const { return m_extent[n];}
 	IndexType                   stride(IndexType n) const { return m_stride[n];}
 	bool                        valid()             const { return m_ptr!=NULL;}
+
+	// allow to swap axis
+	void swapAxis(size_t a, size_t b)
+	{
+		if ((a>=rank) || (b>=rank) || (a==b))
+			return;
+		m_swapped = true;
+		std::swap(m_extent[a], m_extent[b]);
+		std::swap(m_stride[a], m_stride[b]);
+	}
+
+	// return if any axis are swapped (important for linear data access)
+	bool wasSwapped() const {return m_swapped;}
 
 	// return the number of array elements
 	IndexType                   size()              const { return m_size;     }

@@ -1,5 +1,5 @@
 /*
-*	Copyright (C) 2012 Thorsten Liebig (Thorsten.Liebig@gmx.de)
+*	Copyright (C) 2012-2025 Thorsten Liebig (Thorsten.Liebig@gmx.de)
 *
 *	This program is free software: you can redistribute it and/or modify
 *	it under the terms of the GNU General Public License as published by
@@ -19,11 +19,29 @@
 #define SAR_CALCULATION_H
 
 #include <complex>
+#include <vector>
+#include <mutex>
+#include <atomic>
+#include "arraylib/array_ijk.h"
+#include "arraylib/array_nijk.h"
 
-class SAR_Calculation
+#if defined(WIN32)
+	#ifdef BUILD_OPENEMS_LIB
+	#define SAR_EXPORT __declspec(dllexport)
+	#else
+	#define SAR_EXPORT __declspec(dllimport)
+	#endif
+#else
+#define SAR_EXPORT
+#endif
+
+class HDF5_File_Writer;
+
+class SAR_EXPORT SAR_Calculation
 {
 public:
 	SAR_Calculation();
+	~SAR_Calculation();
 
 	enum SARAveragingMethod { IEEE_C95_3, IEEE_62704, SIMPLE};
 
@@ -33,62 +51,109 @@ public:
 	//! Set the debug level
 	void SetDebugLevel(int level) {m_DebugLevel=level;}
 
-	//! Set the used averaging method
-	void SetAveragingMethod(SARAveragingMethod method, bool silent=false);
+	//! Enable progress output
+	void EnableProgress(bool enable=true) {m_progress=enable;}
 
 	//! Set the used averaging method
-	void SetAveragingMethod(std::string method, bool silent=false);
+	bool SetAveragingMethod(SARAveragingMethod method, bool silent=false);
+
+	//! Set the used averaging method
+	bool SetAveragingMethod(std::string method, bool silent=false);
 
 	//! Set number of lines in all direcitions. (mandatory information)
 	void SetNumLines(unsigned int numLines[3]);
+
+	//! Define a sub range for SAR calculation for the given direction. Number of lines must already be set!
+	void SetSubRange(int ny, unsigned int start, unsigned int stop);
+
 	//! Set cell width in all direcitions. (mandatory information for averaging)
-	void SetCellWidth(float* cellWidth[3]);
+	void SetCellWidth(double* cellWidth[3]);
 
 	//! Set the averaging mash. (mandatory information for averaging)
 	void SetAveragingMass(float mass) {m_avg_mass=mass;}
 
 	//! Set the cell volumes (optional for speedup)
-	void SetCellVolumes(float*** cell_volume) {m_cell_volume=cell_volume;}
+	void SetCellVolumes(ArrayLib::ArrayIJK<float>* cell_volume) {m_cell_volume=cell_volume;}
 
 	//! Set the cell densities (mandatory information)
-	void SetCellDensities(float*** cell_density) {m_cell_density=cell_density;}
+	void SetCellDensities(ArrayLib::ArrayIJK<float>* cell_density) {m_cell_density=cell_density;}
 
-	//! Set the cell conductivities (mandatory if no current density field is given)
-	void SetCellCondictivity(float*** cell_conductivity) {m_cell_conductivity=cell_conductivity;}
+	//! Add an electric field
+	void AddEFieldAndCondictivity(float freq, ArrayLib::ArrayNIJK<std::complex<float>>* e_field, ArrayLib::ArrayIJK<float>* cell_conductivity);
 
-	//! Set the electric field (mandatory information)
-	void SetEField(std::complex<float>**** field) {m_E_field=field;}
-	//! Set the current density field (mandatory if no conductivity distribution is given)
-	void SetJField(std::complex<float>**** field) {m_J_field=field;}
+	//! Add an electric field and current density field
+	void AddEFieldAndJField(float freq, ArrayLib::ArrayNIJK<std::complex<float>>* e_field, ArrayLib::ArrayNIJK<std::complex<float>>* j_field);
+
+	//! Enable the recording of special averaging cube stats
+	void EnableCubeStats() {m_record_cube_stats=true;}
+
+	//! Limit the SAR calculation area to a box with the highest local power densities
+	void EnableAutoRange(double dBmax) {m_autoRange=dBmax;}
 
 	//! Calculate the SAR, requires a preallocated 3D array
-	float*** CalcSAR(float*** SAR);
+	bool CalcSAR(unsigned int numThreads=0);
 
-	//! Calculate the total power dumped
-	double CalcSARPower();
+	//! Get the total power dumped for frequency index n
+	double GetSARPower(size_t freq_n) {return m_power.at(freq_n);}
+
+	//! Get the SAR results for frequency index n
+	ArrayLib::ArrayIJK<float>* GetSAR(size_t freq_n) {return m_SAR.at(freq_n);}
+
+	//! Calculate the total mass
+	double CalcTotalMass();
+
+	//! Read all raw data from an hdf5 file
+	bool ReadFromHDF5(std::string h5_fn);
+
+	//! Create and write an hdf5 output file (incl. mesh etc.)
+	bool WriteToHDF5(std::string out_name, bool legacyHDF5=false);
+
+	//! Write the results to an hdf5 output file (mesh information and some other details are not included here)
+	bool WriteToHDF5(HDF5_File_Writer &out_file, bool legacyHDF5=false);
+
+	//! Read and write from an hdf5 file
+	bool CalcFromHDF5(std::string h5_fn, std::string out_name, bool legacyHDF5=false, unsigned int numThreads=0);
 
 protected:
+	// raw input data
 	unsigned int m_numLines[3];
-	float* m_cellWidth[3];
+	double* m_lines[3]; // may not be set in all cases
 
-	float m_avg_mass;
-	float*** m_cell_volume;
-	float*** m_cell_density;
-	float*** m_cell_conductivity;
-	std::complex<float>**** m_E_field;
-	std::complex<float>**** m_J_field;
+	bool m_cleanup_cell_data = false;
+	double* m_cellWidth[3];
+	ArrayLib::ArrayIJK<float>* m_cell_volume;
+	ArrayLib::ArrayIJK<float>* m_cell_density;
 
-	bool*** m_Vx_Used;
-	bool*** m_Vx_Valid;
+	std::vector<float> m_freq;
+	std::vector<ArrayLib::ArrayIJK<float>*> m_local_cell_power_density; // precalculated local cell power density
+	std::vector<float> m_local_cell_max_power_density; // precalculated max local cell power density (e.g. needed for auto range)
 
-	unsigned int m_Valid;
-	unsigned int m_Used;
-	unsigned int m_Unused;
-	unsigned int m_AirVoxel;
+	// save some statistical data
+	size_t m_Valid;
+	size_t m_Used;
+	size_t m_Unused;
+	size_t m_AirVoxel;
+
+	// output data
+	ArrayLib::ArrayIJK<unsigned int> m_posInOuput;
+	std::vector<unsigned int> m_cellIndicies[3];  // list of output indecies into the raw data mesh
+	ArrayLib::ArrayIJK<unsigned char> m_cube_type;
+	ArrayLib::ArrayIJK<float> m_cube_mass;
+	ArrayLib::ArrayIJK<float> m_cube_volume;
+
+	std::vector<double> m_power;
+	std::vector<float> m_maxSAR;
+	std::vector<std::array<unsigned int, 3>> m_maxSAR_Idx;
+	std::vector<ArrayLib::ArrayIJK<float>*> m_SAR;
 
 	int m_DebugLevel;
+	double m_duration;
+	double m_autoRange = 0;
+	bool m_record_cube_stats = false;
+	bool m_progress = false;
 
 	/*********** SAR calculation parameter and settings ***********/
+	float m_avg_mass;
 	float m_massTolerance;
 	unsigned int m_maxMassIterations;
 	float m_maxBGRatio;
@@ -97,26 +162,37 @@ protected:
 	bool m_IgnoreFaceValid;
 
 	/*********** SAR calculations methods ********/
-	double CalcLocalPowerDensity(unsigned int pos[3]);
+	void DoAutoRange();
+	void InitSAR();
 
 	//! Calculate the local SAR
-	float*** CalcLocalSAR(float*** SAR);
+	bool CalcLocalSAR();
 
 	/****** start SAR averaging and all necessary methods ********/
 	//! Calculate the averaged SAR
-	float*** CalcAveragedSAR(float*** SAR);
+	unsigned int m_numThreads=0;
+	std::atomic<size_t> m_progressCounter{0};
+	std::mutex m_resultMutex;
+	std::mutex m_planeLocks[128];
+	std::atomic<size_t> m_nextStepChunk{0};
+	size_t m_step1_case1, m_step1_case2, m_step1_no_conv;
+	bool CalcAvgStep1SAR(ArrayLib::ArrayIJK<bool> &Vx_Valid, ArrayLib::ArrayIJK<bool> &Vx_Used);
+	bool CalcAvgStep2SAR(ArrayLib::ArrayIJK<bool> &Vx_Valid, ArrayLib::ArrayIJK<bool> &Vx_Used);
+	bool CalcAveragedSAR(unsigned int numThreads=0);
 
 	int FindFittingCubicalMass(unsigned int pos[3], float box_size, unsigned int start[3], unsigned int stop[3],
 						float partial_start[3], float partial_stop[3], double &mass, double &volume, double &bg_ratio, int disabledFace=-1, bool ignoreFaceValid=false);
 	bool GetCubicalMass(unsigned int pos[3], double box_size, unsigned int start[3], unsigned int stop[3],
 						float partial_start[3], float partial_stop[3], double &mass, double &volume, double &bg_ratio, int disabledFace=-1);
 
-	float CalcCubicalSAR(float*** SAR, unsigned int pos[3], unsigned int start[3], unsigned int stop[3], float partial_start[3], float partial_stop[3], bool assignUsed=false);
+	void CalcCubicalSAR(double* vx_sar, unsigned int start[3], unsigned int stop[3],
+						 float partial_start[3], float partial_stop[3]);
+	void AssignUsedSAR(double* vx_sar, unsigned int start[3], unsigned int stop[3],
+						 float partial_start[3], float partial_stop[3],
+						 ArrayLib::ArrayIJK<bool> &Vx_Used, ArrayLib::ArrayIJK<bool> &Vx_Valid);
 	/****** end SAR averaging and all necessary methods ********/
 
 	bool CheckValid();
-	double CellVolume(unsigned int pos[3]);
-	double CellMass(unsigned int pos[3]);
 };
 
 #endif // SAR_CALCULATION_H
