@@ -55,6 +55,26 @@
 // In the future, all Extensions should probably be eventually converted be
 // templates.
 
+/*
+ * CUDA engine dispatch: falls back to base Engine template (uses virtual
+ * GetVolt/SetVolt which do per-element cudaMemcpy). This is correct but
+ * slow — individual extensions should override with GPU kernels in later
+ * phases for performance.
+ */
+#ifdef CUDA_SUPPORT
+#define ENG_DISPATCH_CUDA_CASE(impl) \
+	case Engine::CUDA: \
+		(this)->template impl<Engine>((Engine*) m_Eng); \
+		break;
+#define ENG_DISPATCH_ARGS_CUDA_CASE(impl, ...) \
+	case Engine::CUDA: \
+		(this)->template impl<Engine>((Engine*) m_Eng, __VA_ARGS__); \
+		break;
+#else
+#define ENG_DISPATCH_CUDA_CASE(impl)
+#define ENG_DISPATCH_ARGS_CUDA_CASE(impl, ...)
+#endif
+
 #define ENG_DISPATCH(impl) \
 	switch (m_Eng->GetType()) \
 	{ \
@@ -64,6 +84,7 @@
 	case Engine::BASIC: \
 		(this)->template impl<Engine>((Engine*) m_Eng); \
 		break; \
+	ENG_DISPATCH_CUDA_CASE(impl) \
 	default: \
 		/* requires change here if a new engine is added. */ \
 		throw std::runtime_error( \
@@ -80,6 +101,7 @@
 	case Engine::BASIC: \
 		(this)->template impl<Engine>((Engine*) m_Eng, __VA_ARGS__); \
 		break; \
+	ENG_DISPATCH_ARGS_CUDA_CASE(impl, __VA_ARGS__) \
 	default: \
 		/* requires change here if a new engine is added. */ \
 		throw std::runtime_error( \

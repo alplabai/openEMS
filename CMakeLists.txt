@@ -20,7 +20,17 @@ ENDIF()
 # https://cmake.org/cmake/help/latest/command/cmake_minimum_required.html
 cmake_minimum_required(VERSION 3.1...3.10)
 
-PROJECT(openEMS CXX C)
+option(WITH_CUDA "Build with CUDA/GPU acceleration support" OFF)
+
+if(WITH_CUDA)
+  PROJECT(openEMS CXX C CUDA)
+  find_package(CUDAToolkit REQUIRED)
+  add_definitions(-DCUDA_SUPPORT)
+  message(STATUS "CUDA support enabled")
+  message(STATUS "  CUDA Toolkit: ${CUDAToolkit_VERSION}")
+else()
+  PROJECT(openEMS CXX C)
+endif()
 
 # default
 set(LIB_VERSION_MAJOR 0)
@@ -191,6 +201,10 @@ endif()
 add_library( openEMS SHARED ${SOURCES})
 #ADD_EXECUTABLE( openEMS main.cpp ${SOURCES})
 set_target_properties(openEMS PROPERTIES VERSION ${LIB_VERSION_STRING} SOVERSION ${LIB_VERSION_MAJOR} )
+if(WITH_CUDA)
+  set(CUDA_LINK_LIBRARIES CUDA::cudart)
+endif()
+
 TARGET_LINK_LIBRARIES( openEMS
   ${CSXCAD_LIBRARIES}
   ${fparser_LIBRARIES}
@@ -200,6 +214,7 @@ TARGET_LINK_LIBRARIES( openEMS
   ${Boost_LIBRARIES}
   ${vtk_LIBS}
   ${MPI_LIBRARIES}
+  ${CUDA_LINK_LIBRARIES}
 )
 
 if (WIN32)
