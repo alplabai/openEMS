@@ -57,6 +57,11 @@ public:
 	void SyncCurrToHost();
 	void SyncCurrToDevice();
 
+	// Device pointer access for GPU-native extensions
+	float* GetDeviceVolt() { return d_volt; }
+	float* GetDeviceCurr() { return d_curr; }
+	const Operator* GetOperator() const { return Op; }
+
 protected:
 	Engine_CUDA(const Operator* op);
 

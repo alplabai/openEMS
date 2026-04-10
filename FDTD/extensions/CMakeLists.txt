@@ -2,6 +2,13 @@
 #INCLUDE_DIRECTORIES( ${openEMS_SOURCE_DIR} )
 #INCLUDE_DIRECTORIES( ${CSXCAD_SOURCE_DIR}/src )
 
+if (WITH_CUDA)
+  set(CUDA_EXT_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/engine_ext_upml_cuda.cu
+    ${CMAKE_CURRENT_SOURCE_DIR}/engine_ext_excitation_cuda.cu
+  )
+endif()
+
 set(SOURCES
   ${SOURCES}
   ${CMAKE_CURRENT_SOURCE_DIR}/engine_extension.cpp
@@ -28,6 +35,7 @@ set(SOURCES
   ${CMAKE_CURRENT_SOURCE_DIR}/engine_ext_lumpedRLC.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/operator_ext_absorbing_bc.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/engine_ext_absorbing_bc.cpp
+  ${CUDA_EXT_SOURCES}
   PARENT_SCOPE
 )
 
