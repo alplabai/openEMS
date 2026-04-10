@@ -26,66 +26,6 @@
 // CUDA Kernels for PML flux updates
 // ============================================================
 
-/**
- * PML Pre-Voltage kernel:
- *   f_help = vv * volt_global - vvfo * volt_flux
- *   volt_global = volt_flux  (swap)
- *   volt_flux = f_help
- */
-__global__ void UPML_PreVoltage_kernel(
-	float* __restrict__ d_volt,          // global field array (engine)
-	float* __restrict__ d_volt_flux,     // PML flux state
-	const float* __restrict__ d_vv,
-	const float* __restrict__ d_vvfo,
-	unsigned int pNx, unsigned int pNy, unsigned int pNz,
-	unsigned int startX, unsigned int startY, unsigned int startZ,
-	unsigned int gNy, unsigned int gNz)
-{
-	unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
-	unsigned int pml_total = pNx * pNy * pNz;
-	if (idx >= pml_total)
-		return;
-
-	unsigned int lx = idx / (pNy * pNz);
-	unsigned int ly = (idx / pNz) % pNy;
-	unsigned int lz = idx % pNz;
-
-	unsigned int gx = lx + startX;
-	unsigned int gy = ly + startY;
-	unsigned int gz = lz + startZ;
-
-	unsigned int pml_stride = pml_total;   // stride for component dim in PML arrays
-	unsigned int g_stride = gNy * gNz;     // stride for x in global arrays
-	unsigned int g_total = (startX + pNx) * gNy * gNz; // approximate, use actual
-
-	// Compute strides for global array (N-I-J-K layout)
-	unsigned int g_NxNyNz = ((startX + pNx > gx + 1) ? (startX + pNx) : (gx + 1));
-	// Actually, global stride_n is the full domain size
-	// We need the global dimensions from the engine - passed as gNy, gNz
-	// Global Nx is not passed but gx < global_Nx always holds
-	// stride_n for global = global_Nx * gNy * gNz (but we don't know global_Nx)
-	// Instead, compute global linear index directly:
-	// We need global_Nx. Let's pass it. Actually, the caller should compute
-	// global_stride_n = global_Nx * gNy * gNz and pass it.
-	// For simplicity, let's compute it from the known relationship.
-
-	// Actually the simpler approach: pass global_stride_n directly
-	// This kernel will be launched with global_stride_n as parameter
-	// Let me restructure...
-
-	// Nope, let me keep it simple. The caller passes global_Nx.
-	// But we don't have it in the kernel params. Let me add it.
-	// Actually for the NIJK layout, we only need gNy and gNz to compute the position.
-	// The stride_n (component stride) is global_Nx * gNy * gNz.
-	// We can't compute global_Nx from what we have.
-	// Let me restructure the kernel signature.
-
-	// WORKAROUND: We'll restructure below with global_stride_n parameter.
-	// For now, this code is placeholder. The real kernel is below.
-}
-
-// Restructured kernels with proper global stride parameter:
-
 __global__ void UPML_PreVolt_kernel(
 	float* __restrict__ d_volt,
 	float* __restrict__ d_volt_flux,
@@ -149,9 +89,10 @@ __global__ void UPML_PostVolt_kernel(
 		unsigned int pi = n * p_stride_n + idx;
 		unsigned int gi = n * g_stride_n + g_pos;
 
-		float f_help = d_volt_flux[pi];
-		d_volt_flux[pi] = d_volt[gi];
-		d_volt[gi] = f_help + d_vvfn[pi] * d_volt_flux[pi];
+		float old_flux = d_volt_flux[pi];
+		float old_volt = d_volt[gi];
+		d_volt_flux[pi] = old_volt;
+		d_volt[gi] = old_flux + d_vvfn[pi] * old_volt;
 	}
 }
 
@@ -218,9 +159,10 @@ __global__ void UPML_PostCurr_kernel(
 		unsigned int pi = n * p_stride_n + idx;
 		unsigned int gi = n * g_stride_n + g_pos;
 
-		float f_help = d_curr_flux[pi];
-		d_curr_flux[pi] = d_curr[gi];
-		d_curr[gi] = f_help + d_iifn[pi] * d_curr_flux[pi];
+		float old_flux = d_curr_flux[pi];
+		float old_curr = d_curr[gi];
+		d_curr_flux[pi] = old_curr;
+		d_curr[gi] = old_flux + d_iifn[pi] * old_curr;
 	}
 }
 
@@ -312,16 +254,17 @@ void Engine_Ext_UPML_CUDA::DoPreVoltageUpdates()
 	unsigned int g_stride_n = m_global_Nx * m_global_Ny * m_global_Nz;
 
 	UPML_PreVolt_kernel<<<gridSize, blockSize>>>(
-		m_Eng_CUDA->d_volt, d_volt_flux,
+		m_Eng_CUDA->GetDeviceVolt(), d_volt_flux,
 		d_vv, d_vvfo,
 		m_pml_Nx, m_pml_Ny, m_pml_Nz,
 		m_startX, m_startY, m_startZ,
 		m_global_Ny, m_global_Nz, g_stride_n);
+	CUDA_CHECK(cudaGetLastError());
 }
 
 void Engine_Ext_UPML_CUDA::DoPostVoltageUpdates()
 {
-	if (!m_Eng_CUDA) return;
+	if (!m_Eng_CUDA) InitCUDA();
 
 	unsigned int pml_cells = m_pml_Nx * m_pml_Ny * m_pml_Nz;
 	unsigned int blockSize = 256;
@@ -329,16 +272,17 @@ void Engine_Ext_UPML_CUDA::DoPostVoltageUpdates()
 	unsigned int g_stride_n = m_global_Nx * m_global_Ny * m_global_Nz;
 
 	UPML_PostVolt_kernel<<<gridSize, blockSize>>>(
-		m_Eng_CUDA->d_volt, d_volt_flux,
+		m_Eng_CUDA->GetDeviceVolt(), d_volt_flux,
 		d_vvfn,
 		m_pml_Nx, m_pml_Ny, m_pml_Nz,
 		m_startX, m_startY, m_startZ,
 		m_global_Ny, m_global_Nz, g_stride_n);
+	CUDA_CHECK(cudaGetLastError());
 }
 
 void Engine_Ext_UPML_CUDA::DoPreCurrentUpdates()
 {
-	if (!m_Eng_CUDA) return;
+	if (!m_Eng_CUDA) InitCUDA();
 
 	unsigned int pml_cells = m_pml_Nx * m_pml_Ny * m_pml_Nz;
 	unsigned int blockSize = 256;
@@ -346,16 +290,17 @@ void Engine_Ext_UPML_CUDA::DoPreCurrentUpdates()
 	unsigned int g_stride_n = m_global_Nx * m_global_Ny * m_global_Nz;
 
 	UPML_PreCurr_kernel<<<gridSize, blockSize>>>(
-		m_Eng_CUDA->d_curr, d_curr_flux,
+		m_Eng_CUDA->GetDeviceCurr(), d_curr_flux,
 		d_ii, d_iifo,
 		m_pml_Nx, m_pml_Ny, m_pml_Nz,
 		m_startX, m_startY, m_startZ,
 		m_global_Ny, m_global_Nz, g_stride_n);
+	CUDA_CHECK(cudaGetLastError());
 }
 
 void Engine_Ext_UPML_CUDA::DoPostCurrentUpdates()
 {
-	if (!m_Eng_CUDA) return;
+	if (!m_Eng_CUDA) InitCUDA();
 
 	unsigned int pml_cells = m_pml_Nx * m_pml_Ny * m_pml_Nz;
 	unsigned int blockSize = 256;
@@ -363,11 +308,12 @@ void Engine_Ext_UPML_CUDA::DoPostCurrentUpdates()
 	unsigned int g_stride_n = m_global_Nx * m_global_Ny * m_global_Nz;
 
 	UPML_PostCurr_kernel<<<gridSize, blockSize>>>(
-		m_Eng_CUDA->d_curr, d_curr_flux,
+		m_Eng_CUDA->GetDeviceCurr(), d_curr_flux,
 		d_iifn,
 		m_pml_Nx, m_pml_Ny, m_pml_Nz,
 		m_startX, m_startY, m_startZ,
 		m_global_Ny, m_global_Nz, g_stride_n);
+	CUDA_CHECK(cudaGetLastError());
 }
 
 #endif // CUDA_SUPPORT

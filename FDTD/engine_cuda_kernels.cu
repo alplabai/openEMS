@@ -16,6 +16,8 @@
 */
 
 #include <cuda_runtime.h>
+#include <stdexcept>
+#include <string>
 #include "engine_cuda_kernels.h"
 
 /**
@@ -116,9 +118,9 @@ __global__ void UpdateCurrents_kernel(
 	unsigned int Nx, unsigned int Ny, unsigned int Nz)
 {
 	unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
-	unsigned int NxH = Nx;      // H-field update goes up to Nx-1 in x
-	unsigned int NyH = Ny - 1;  // and Ny-2 in y (Ny-1 values)
-	unsigned int NzH = Nz - 1;  // and Nz-2 in z (Nz-1 values)
+	unsigned int NxH = Nx - 1;  // H-field update: [0, Nx-2]
+	unsigned int NyH = Ny - 1;  // [0, Ny-2]
+	unsigned int NzH = Nz - 1;  // [0, Nz-2]
 	unsigned int totalH = NxH * NyH * NzH;
 
 	if (idx >= totalH)
@@ -165,10 +167,14 @@ void LaunchUpdateVoltages(
 	const float* d_vv, const float* d_vi,
 	unsigned int Nx, unsigned int Ny, unsigned int Nz)
 {
-	unsigned int total = Nx * Ny * Nz;
+	size_t total = (size_t)Nx * Ny * Nz;
+	if (total == 0) return;
 	unsigned int blockSize = 256;
-	unsigned int gridSize = (total + blockSize - 1) / blockSize;
+	unsigned int gridSize = (unsigned int)((total + blockSize - 1) / blockSize);
 	UpdateVoltages_kernel<<<gridSize, blockSize>>>(d_volt, d_curr, d_vv, d_vi, Nx, Ny, Nz);
+	cudaError_t err = cudaGetLastError();
+	if (err != cudaSuccess)
+		throw std::runtime_error(std::string("UpdateVoltages kernel launch failed: ") + cudaGetErrorString(err));
 }
 
 void LaunchUpdateCurrents(
@@ -176,8 +182,12 @@ void LaunchUpdateCurrents(
 	const float* d_ii, const float* d_iv,
 	unsigned int Nx, unsigned int Ny, unsigned int Nz)
 {
-	unsigned int totalH = Nx * (Ny - 1) * (Nz - 1);
+	if (Nx < 2 || Ny < 2 || Nz < 2) return;
+	size_t totalH = (size_t)(Nx - 1) * (Ny - 1) * (Nz - 1);
 	unsigned int blockSize = 256;
-	unsigned int gridSize = (totalH + blockSize - 1) / blockSize;
+	unsigned int gridSize = (unsigned int)((totalH + blockSize - 1) / blockSize);
 	UpdateCurrents_kernel<<<gridSize, blockSize>>>(d_curr, d_volt, d_ii, d_iv, Nx, Ny, Nz);
+	cudaError_t err = cudaGetLastError();
+	if (err != cudaSuccess)
+		throw std::runtime_error(std::string("UpdateCurrents kernel launch failed: ") + cudaGetErrorString(err));
 }

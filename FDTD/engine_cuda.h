@@ -40,6 +40,9 @@ public:
 	static Engine_CUDA* New(const Operator* op);
 	virtual ~Engine_CUDA();
 
+	Engine_CUDA(const Engine_CUDA&) = delete;
+	Engine_CUDA& operator=(const Engine_CUDA&) = delete;
+
 	virtual void Init();
 	virtual void Reset();
 

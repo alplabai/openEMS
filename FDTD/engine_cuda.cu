@@ -21,10 +21,12 @@
 
 #include <cuda_runtime.h>
 #include <iostream>
+#include <memory>
 #include "engine_cuda_kernels.h"
 #include "tools/openems_error.h"
 
 using std::cerr;
+using std::cout;
 using std::endl;
 
 #define CUDA_CHECK(call) do { \
@@ -63,12 +65,13 @@ Engine_CUDA* Engine_CUDA::New(const Operator* op)
 	cudaDeviceProp prop;
 	CUDA_CHECK(cudaGetDeviceProperties(&prop, 0));
 	cout << "  GPU: " << prop.name << ", "
-	     << (prop.totalGlobalMem / (1024*1024)) << " MB, "
+	     << ((size_t)prop.totalGlobalMem / (1024*1024)) << " MB, "
 	     << "Compute " << prop.major << "." << prop.minor << endl;
 
-	Engine_CUDA* e = new Engine_CUDA(op);
+	// Use unique_ptr for exception safety (LOW-4)
+	std::unique_ptr<Engine_CUDA> e(new Engine_CUDA(op));
 	e->Init();
-	return e;
+	return e.release();
 }
 
 Engine_CUDA::~Engine_CUDA()
@@ -87,25 +90,34 @@ void Engine_CUDA::Init()
 	cout << "  CUDA: Allocating " << (m_totalBytes * 8 / (1024*1024))
 	     << " MB GPU memory (8 arrays)" << endl;
 
-	// Allocate device arrays
-	CUDA_CHECK(cudaMalloc(&d_volt, m_totalBytes));
-	CUDA_CHECK(cudaMalloc(&d_curr, m_totalBytes));
-	CUDA_CHECK(cudaMalloc(&d_vv,   m_totalBytes));
-	CUDA_CHECK(cudaMalloc(&d_vi,   m_totalBytes));
-	CUDA_CHECK(cudaMalloc(&d_ii,   m_totalBytes));
-	CUDA_CHECK(cudaMalloc(&d_iv,   m_totalBytes));
+	// Allocate device arrays — Reset() handles cleanup if any allocation fails
+	// since constructor zeroed all pointers and Reset() null-checks (HIGH-1)
+	try
+	{
+		CUDA_CHECK(cudaMalloc(&d_volt, m_totalBytes));
+		CUDA_CHECK(cudaMalloc(&d_curr, m_totalBytes));
+		CUDA_CHECK(cudaMalloc(&d_vv,   m_totalBytes));
+		CUDA_CHECK(cudaMalloc(&d_vi,   m_totalBytes));
+		CUDA_CHECK(cudaMalloc(&d_ii,   m_totalBytes));
+		CUDA_CHECK(cudaMalloc(&d_iv,   m_totalBytes));
 
-	// Upload field arrays (initialized to zero by Engine::Init)
-	CUDA_CHECK(cudaMemcpy(d_volt, volt_ptr->data(), m_totalBytes, cudaMemcpyHostToDevice));
-	CUDA_CHECK(cudaMemcpy(d_curr, curr_ptr->data(), m_totalBytes, cudaMemcpyHostToDevice));
+		// Upload field arrays (initialized to zero by Engine::Init)
+		CUDA_CHECK(cudaMemcpy(d_volt, volt_ptr->data(), m_totalBytes, cudaMemcpyHostToDevice));
+		CUDA_CHECK(cudaMemcpy(d_curr, curr_ptr->data(), m_totalBytes, cudaMemcpyHostToDevice));
 
-	// Upload operator coefficients (read-only on GPU)
-	CUDA_CHECK(cudaMemcpy(d_vv, Op->vv_ptr->data(), m_totalBytes, cudaMemcpyHostToDevice));
-	CUDA_CHECK(cudaMemcpy(d_vi, Op->vi_ptr->data(), m_totalBytes, cudaMemcpyHostToDevice));
-	CUDA_CHECK(cudaMemcpy(d_ii, Op->ii_ptr->data(), m_totalBytes, cudaMemcpyHostToDevice));
-	CUDA_CHECK(cudaMemcpy(d_iv, Op->iv_ptr->data(), m_totalBytes, cudaMemcpyHostToDevice));
+		// Upload operator coefficients (read-only on GPU)
+		CUDA_CHECK(cudaMemcpy(d_vv, Op->vv_ptr->data(), m_totalBytes, cudaMemcpyHostToDevice));
+		CUDA_CHECK(cudaMemcpy(d_vi, Op->vi_ptr->data(), m_totalBytes, cudaMemcpyHostToDevice));
+		CUDA_CHECK(cudaMemcpy(d_ii, Op->ii_ptr->data(), m_totalBytes, cudaMemcpyHostToDevice));
+		CUDA_CHECK(cudaMemcpy(d_iv, Op->iv_ptr->data(), m_totalBytes, cudaMemcpyHostToDevice));
+	}
+	catch (...)
+	{
+		Reset();
+		throw;
+	}
 
-	m_hasExtensions = (m_Eng_exts.size() > 0);
+	m_hasExtensions = false; // will be set dynamically in IterateTS (MEDIUM-5)
 }
 
 void Engine_CUDA::Reset()
@@ -124,21 +136,32 @@ void Engine_CUDA::Reset()
 
 bool Engine_CUDA::IterateTS(unsigned int iterTS)
 {
+	// Check dynamically if extensions exist (MEDIUM-5)
+	bool hasExts = !m_Eng_exts.empty();
+
 	for (unsigned int iter = 0; iter < iterTS; ++iter)
 	{
-		// --- Voltage update cycle ---
-		if (m_hasExtensions)
+		if (hasExts)
 		{
+			// Sync GPU→CPU so CPU extensions can read fields
+			cudaDeviceSynchronize();
 			SyncVoltToHost();
 			SyncCurrToHost();
+
+			// Run all extension pre-voltage hooks (GPU-native ones operate
+			// on device arrays directly; CPU ones read host arrays)
 			DoPreVoltageUpdates();
+
+			// Sync CPU→GPU in case CPU extensions modified host arrays
 			SyncVoltToDevice();
+			SyncCurrToDevice();
 		}
 
+		// Main E-field update on GPU
 		LaunchUpdateVoltages(d_volt, d_curr, d_vv, d_vi,
 		                     numLines[0], numLines[1], numLines[2]);
 
-		if (m_hasExtensions)
+		if (hasExts)
 		{
 			cudaDeviceSynchronize();
 			SyncVoltToHost();
@@ -147,20 +170,21 @@ bool Engine_CUDA::IterateTS(unsigned int iterTS)
 			SyncVoltToDevice();
 		}
 
-		// --- Current update cycle ---
-		if (m_hasExtensions)
+		if (hasExts)
 		{
+			cudaDeviceSynchronize();
 			SyncVoltToHost();
 			SyncCurrToHost();
 			DoPreCurrentUpdates();
-			SyncCurrToDevice();
 			SyncVoltToDevice();
+			SyncCurrToDevice();
 		}
 
+		// Main H-field update on GPU
 		LaunchUpdateCurrents(d_curr, d_volt, d_ii, d_iv,
 		                     numLines[0], numLines[1], numLines[2]);
 
-		if (m_hasExtensions)
+		if (hasExts)
 		{
 			cudaDeviceSynchronize();
 			SyncCurrToHost();
@@ -174,6 +198,8 @@ bool Engine_CUDA::IterateTS(unsigned int iterTS)
 
 	// Final sync so host arrays are up to date for processing/output
 	cudaDeviceSynchronize();
+	SyncVoltToHost();
+	SyncCurrToHost();
 
 	return true;
 }
@@ -201,47 +227,49 @@ void Engine_CUDA::SyncCurrToDevice()
 }
 
 // --- Single-element access (slow, for CPU extension fallback) ---
+// Uses CUDA_CHECK for error detection (CRITICAL-5)
+// Uses size_t casts to prevent overflow (MEDIUM-1)
 
 FDTD_FLOAT Engine_CUDA::GetVolt(unsigned int n, unsigned int x, unsigned int y, unsigned int z) const
 {
-	size_t offset = n * numLines[0] * numLines[1] * numLines[2]
-	              + x * numLines[1] * numLines[2]
-	              + y * numLines[2]
+	size_t offset = (size_t)n * numLines[0] * numLines[1] * numLines[2]
+	              + (size_t)x * numLines[1] * numLines[2]
+	              + (size_t)y * numLines[2]
 	              + z;
-	float val;
-	cudaMemcpy(&val, d_volt + offset, sizeof(float), cudaMemcpyDeviceToHost);
+	float val = 0;
+	CUDA_CHECK(cudaMemcpy(&val, d_volt + offset, sizeof(float), cudaMemcpyDeviceToHost));
 	return val;
 }
 
 FDTD_FLOAT Engine_CUDA::GetCurr(unsigned int n, unsigned int x, unsigned int y, unsigned int z) const
 {
-	size_t offset = n * numLines[0] * numLines[1] * numLines[2]
-	              + x * numLines[1] * numLines[2]
-	              + y * numLines[2]
+	size_t offset = (size_t)n * numLines[0] * numLines[1] * numLines[2]
+	              + (size_t)x * numLines[1] * numLines[2]
+	              + (size_t)y * numLines[2]
 	              + z;
-	float val;
-	cudaMemcpy(&val, d_curr + offset, sizeof(float), cudaMemcpyDeviceToHost);
+	float val = 0;
+	CUDA_CHECK(cudaMemcpy(&val, d_curr + offset, sizeof(float), cudaMemcpyDeviceToHost));
 	return val;
 }
 
 void Engine_CUDA::SetVolt(unsigned int n, unsigned int x, unsigned int y, unsigned int z, FDTD_FLOAT value)
 {
-	size_t offset = n * numLines[0] * numLines[1] * numLines[2]
-	              + x * numLines[1] * numLines[2]
-	              + y * numLines[2]
+	size_t offset = (size_t)n * numLines[0] * numLines[1] * numLines[2]
+	              + (size_t)x * numLines[1] * numLines[2]
+	              + (size_t)y * numLines[2]
 	              + z;
 	float val = value;
-	cudaMemcpy(d_volt + offset, &val, sizeof(float), cudaMemcpyHostToDevice);
+	CUDA_CHECK(cudaMemcpy(d_volt + offset, &val, sizeof(float), cudaMemcpyHostToDevice));
 }
 
 void Engine_CUDA::SetCurr(unsigned int n, unsigned int x, unsigned int y, unsigned int z, FDTD_FLOAT value)
 {
-	size_t offset = n * numLines[0] * numLines[1] * numLines[2]
-	              + x * numLines[1] * numLines[2]
-	              + y * numLines[2]
+	size_t offset = (size_t)n * numLines[0] * numLines[1] * numLines[2]
+	              + (size_t)x * numLines[1] * numLines[2]
+	              + (size_t)y * numLines[2]
 	              + z;
 	float val = value;
-	cudaMemcpy(d_curr + offset, &val, sizeof(float), cudaMemcpyHostToDevice);
+	CUDA_CHECK(cudaMemcpy(d_curr + offset, &val, sizeof(float), cudaMemcpyHostToDevice));
 }
 
 #endif // CUDA_SUPPORT

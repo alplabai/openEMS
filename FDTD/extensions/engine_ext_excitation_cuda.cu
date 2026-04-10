@@ -43,10 +43,12 @@ __global__ void Excitation_ApplyVolt_kernel(
 	unsigned int n = blockIdx.x * blockDim.x + threadIdx.x;
 	if (n >= count) return;
 
+	if (period <= 0 || signal_length == 0) return;
+
 	int exc_pos = numTS - (int)d_delay[n];
-	exc_pos *= (exc_pos > 0);
-	exc_pos %= period;
-	exc_pos *= (exc_pos < (int)signal_length);
+	if (exc_pos < 0) exc_pos = 0;
+	exc_pos = exc_pos % period;
+	if (exc_pos < 0 || exc_pos >= (int)signal_length) return;
 
 	unsigned int ny = d_dir[n];
 	unsigned int gi = ny * g_stride_n + d_idx_x[n] * gNy * gNz + d_idx_y[n] * gNz + d_idx_z[n];
@@ -70,10 +72,12 @@ __global__ void Excitation_ApplyCurr_kernel(
 	unsigned int n = blockIdx.x * blockDim.x + threadIdx.x;
 	if (n >= count) return;
 
+	if (period <= 0 || signal_length == 0) return;
+
 	int exc_pos = numTS - (int)d_delay[n];
-	exc_pos *= (exc_pos > 0);
-	exc_pos %= period;
-	exc_pos *= (exc_pos < (int)signal_length);
+	if (exc_pos < 0) exc_pos = 0;
+	exc_pos = exc_pos % period;
+	if (exc_pos < 0 || exc_pos >= (int)signal_length) return;
 
 	unsigned int ny = d_dir[n];
 	unsigned int gi = ny * g_stride_n + d_idx_x[n] * gNy * gNz + d_idx_y[n] * gNz + d_idx_z[n];
@@ -107,21 +111,20 @@ Engine_Ext_Excitation_CUDA::~Engine_Ext_Excitation_CUDA()
 
 void Engine_Ext_Excitation_CUDA::FreeCUDA()
 {
-	if (d_Volt_amp) cudaFree(d_Volt_amp);
-	if (d_Volt_delay) cudaFree(d_Volt_delay);
-	if (d_Volt_dir) cudaFree(d_Volt_dir);
-	if (d_Volt_index_x) cudaFree(d_Volt_index_x);
-	if (d_Volt_index_y) cudaFree(d_Volt_index_y);
-	if (d_Volt_index_z) cudaFree(d_Volt_index_z);
-	if (d_Curr_amp) cudaFree(d_Curr_amp);
-	if (d_Curr_delay) cudaFree(d_Curr_delay);
-	if (d_Curr_dir) cudaFree(d_Curr_dir);
-	if (d_Curr_index_x) cudaFree(d_Curr_index_x);
-	if (d_Curr_index_y) cudaFree(d_Curr_index_y);
-	if (d_Curr_index_z) cudaFree(d_Curr_index_z);
-	if (d_exc_volt_signal) cudaFree(d_exc_volt_signal);
-	if (d_exc_curr_signal) cudaFree(d_exc_curr_signal);
-	d_Volt_amp = d_Curr_amp = nullptr;
+	if (d_Volt_amp)        { cudaFree(d_Volt_amp);        d_Volt_amp = nullptr; }
+	if (d_Volt_delay)      { cudaFree(d_Volt_delay);      d_Volt_delay = nullptr; }
+	if (d_Volt_dir)        { cudaFree(d_Volt_dir);        d_Volt_dir = nullptr; }
+	if (d_Volt_index_x)    { cudaFree(d_Volt_index_x);    d_Volt_index_x = nullptr; }
+	if (d_Volt_index_y)    { cudaFree(d_Volt_index_y);    d_Volt_index_y = nullptr; }
+	if (d_Volt_index_z)    { cudaFree(d_Volt_index_z);    d_Volt_index_z = nullptr; }
+	if (d_Curr_amp)        { cudaFree(d_Curr_amp);        d_Curr_amp = nullptr; }
+	if (d_Curr_delay)      { cudaFree(d_Curr_delay);      d_Curr_delay = nullptr; }
+	if (d_Curr_dir)        { cudaFree(d_Curr_dir);        d_Curr_dir = nullptr; }
+	if (d_Curr_index_x)    { cudaFree(d_Curr_index_x);    d_Curr_index_x = nullptr; }
+	if (d_Curr_index_y)    { cudaFree(d_Curr_index_y);    d_Curr_index_y = nullptr; }
+	if (d_Curr_index_z)    { cudaFree(d_Curr_index_z);    d_Curr_index_z = nullptr; }
+	if (d_exc_volt_signal) { cudaFree(d_exc_volt_signal); d_exc_volt_signal = nullptr; }
+	if (d_exc_curr_signal) { cudaFree(d_exc_curr_signal); d_exc_curr_signal = nullptr; }
 	m_cuda_init = false;
 }
 
@@ -209,6 +212,7 @@ void Engine_Ext_Excitation_CUDA::Apply2Voltages()
 		m_Op_Exc->Volt_Count,
 		numTS, m_signal_length, period,
 		gNy, gNz, g_stride_n);
+	CUDA_CHECK(cudaGetLastError());
 }
 
 void Engine_Ext_Excitation_CUDA::Apply2Current()
@@ -236,6 +240,7 @@ void Engine_Ext_Excitation_CUDA::Apply2Current()
 		m_Op_Exc->Curr_Count,
 		numTS, m_signal_length, period,
 		gNy, gNz, g_stride_n);
+	CUDA_CHECK(cudaGetLastError());
 }
 
 #endif // CUDA_SUPPORT
