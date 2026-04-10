@@ -18,6 +18,9 @@
 #include "operator_ext_upml.h"
 #include "FDTD/operator_cylindermultigrid.h"
 #include "engine_ext_upml.h"
+#ifdef CUDA_SUPPORT
+#include "engine_ext_upml_cuda.h"
+#endif
 #include "tools/scoped_locale.h"
 #include "fparser.hh"
 
@@ -447,6 +450,13 @@ bool Operator_Ext_UPML::BuildExtension()
 
 Engine_Extension* Operator_Ext_UPML::CreateEngineExtention()
 {
+#ifdef CUDA_SUPPORT
+	if (m_Op->GetEngine() && m_Op->GetEngine()->GetType() == Engine::CUDA)
+	{
+		Engine_Ext_UPML_CUDA* eng_ext = new Engine_Ext_UPML_CUDA(this);
+		return eng_ext;
+	}
+#endif
 	Engine_Ext_UPML* eng_ext = new Engine_Ext_UPML(this);
 	return eng_ext;
 }

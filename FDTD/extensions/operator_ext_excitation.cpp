@@ -17,6 +17,9 @@
 
 #include "operator_ext_excitation.h"
 #include "engine_ext_excitation.h"
+#ifdef CUDA_SUPPORT
+#include "engine_ext_excitation_cuda.h"
+#endif
 #include "FDTD/excitation.h"
 #include "ContinuousStructure.h"
 
@@ -371,6 +374,10 @@ void Operator_Ext_Excitation::setupCurrentExcitation(
 
 Engine_Extension* Operator_Ext_Excitation::CreateEngineExtention()
 {
+#ifdef CUDA_SUPPORT
+	if (m_Op->GetEngine() && m_Op->GetEngine()->GetType() == Engine::CUDA)
+		return new Engine_Ext_Excitation_CUDA(this);
+#endif
 	return new Engine_Ext_Excitation(this);
 }
 

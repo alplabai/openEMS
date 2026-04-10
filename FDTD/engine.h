@@ -35,7 +35,7 @@ class Engine
 public:
 	enum EngineType
 	{
-		BASIC, SSE, UNKNOWN
+		BASIC, SSE, CUDA, UNKNOWN
 	};
 
 	static Engine* New(const Operator* op);

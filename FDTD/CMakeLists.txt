@@ -1,4 +1,12 @@
 
+if (WITH_CUDA)
+  set(CUDA_SOURCES
+     ${CMAKE_CURRENT_SOURCE_DIR}/engine_cuda.cu
+     ${CMAKE_CURRENT_SOURCE_DIR}/engine_cuda_kernels.cu
+     ${CMAKE_CURRENT_SOURCE_DIR}/operator_cuda.cpp
+     )
+endif()
+
 if (WITH_MPI)
   set(MPI_SOURCES
      ${CMAKE_CURRENT_SOURCE_DIR}/openems_fdtd_mpi.cpp
@@ -10,6 +18,7 @@ endif()
 set(SOURCES
   ${SOURCES}
   ${MPI_SOURCES}
+  ${CUDA_SOURCES}
   ${CMAKE_CURRENT_SOURCE_DIR}/engine.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/operator.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/engine_multithread.cpp

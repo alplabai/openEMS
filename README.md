@@ -39,6 +39,17 @@ cmake .. -G "MinGW Makefiles" -DCMAKE_INSTALL_PREFIX=../../install
 mingw32-make -j$(nproc) install
 ```
 
+### CUDA GPU acceleration (optional)
+
+Requires the [NVIDIA CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit) (11.0+) and a CUDA-capable GPU.
+
+```bash
+cmake .. -G "MinGW Makefiles" -DWITH_CUDA=ON -DCMAKE_INSTALL_PREFIX=../../install
+mingw32-make -j$(nproc) install
+```
+
+Run with `--engine=cuda` to use the GPU engine.
+
 ## License
 
 openEMS is licensed under the terms of the GPLv3, see <http://www.gnu.org/licenses/>.

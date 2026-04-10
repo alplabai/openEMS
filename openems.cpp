@@ -27,6 +27,9 @@
 #include "FDTD/operator_cylindermultigrid.h"
 #include "FDTD/engine_multithread.h"
 #include "FDTD/operator_multithread.h"
+#ifdef CUDA_SUPPORT
+#include "FDTD/operator_cuda.h"
+#endif
 #include "FDTD/extensions/operator_ext_excitation.h"
 #include "FDTD/extensions/operator_ext_tfsf.h"
 #include "FDTD/extensions/operator_ext_mur_abc.h"
@@ -260,6 +263,13 @@ openEMS::optionDesc()
 						cout << "openEMS - enabled multithreading" << endl;
 						m_engine = EngineType_Multithreaded;
 					}
+#ifdef CUDA_SUPPORT
+					else if (val == "cuda")
+					{
+						cout << "openEMS - enabled CUDA GPU engine" << endl;
+						m_engine = EngineType_CUDA;
+					}
+#endif
 				}
 			),
 		    "Choose engine type \n\n"
@@ -755,6 +765,12 @@ bool openEMS::SetupOperator()
 	{
 		FDTD_Op = Operator_Multithread::New(m_engine_numThreads);
 	}
+#ifdef CUDA_SUPPORT
+	else if (m_engine == EngineType_CUDA)
+	{
+		FDTD_Op = Operator_CUDA::New();
+	}
+#endif
 	else
 	{
 		FDTD_Op = Operator::New();
