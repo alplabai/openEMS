@@ -1,5 +1,5 @@
 /*
-*	Copyright (C) 2025 alpLab (alplabai)
+*	Copyright (C) 2025-2026 alpLab (alplabai)
 *
 *	This program is free software: you can redistribute it and/or modify
 *	it under the terms of the GNU General Public License as published by
@@ -23,20 +23,14 @@
 #include <iostream>
 #include <memory>
 #include "engine_cuda_kernels.h"
-#include "tools/openems_error.h"
+#include "tools/cuda_check.h"
+#include "tools/constants.h"
 
-using std::cerr;
+static_assert(sizeof(FDTD_FLOAT) == sizeof(float),
+	"CUDA engine requires FDTD_FLOAT=float");
+
 using std::cout;
 using std::endl;
-
-#define CUDA_CHECK(call) do { \
-	cudaError_t err = (call); \
-	if (err != cudaSuccess) { \
-		cerr << "CUDA error in " << __FILE__ << ":" << __LINE__ << ": " \
-		     << cudaGetErrorString(err) << endl; \
-		throw openEMS_InternalError(std::string("CUDA error: ") + cudaGetErrorString(err)); \
-	} \
-} while(0)
 
 Engine_CUDA::Engine_CUDA(const Operator* op) : Engine(op)
 {
@@ -49,7 +43,6 @@ Engine_CUDA::Engine_CUDA(const Operator* op) : Engine(op)
 	d_iv = nullptr;
 	m_totalSize = 0;
 	m_totalBytes = 0;
-	m_hasExtensions = false;
 }
 
 Engine_CUDA* Engine_CUDA::New(const Operator* op)
@@ -117,7 +110,6 @@ void Engine_CUDA::Init()
 		throw;
 	}
 
-	m_hasExtensions = false; // will be set dynamically in IterateTS (MEDIUM-5)
 }
 
 void Engine_CUDA::Reset()
@@ -144,7 +136,7 @@ bool Engine_CUDA::IterateTS(unsigned int iterTS)
 		if (hasExts)
 		{
 			// Sync GPU→CPU so CPU extensions can read fields
-			cudaDeviceSynchronize();
+			CUDA_CHECK(cudaDeviceSynchronize());
 			SyncVoltToHost();
 			SyncCurrToHost();
 
@@ -163,7 +155,7 @@ bool Engine_CUDA::IterateTS(unsigned int iterTS)
 
 		if (hasExts)
 		{
-			cudaDeviceSynchronize();
+			CUDA_CHECK(cudaDeviceSynchronize());
 			SyncVoltToHost();
 			DoPostVoltageUpdates();
 			Apply2Voltages();
@@ -172,7 +164,7 @@ bool Engine_CUDA::IterateTS(unsigned int iterTS)
 
 		if (hasExts)
 		{
-			cudaDeviceSynchronize();
+			CUDA_CHECK(cudaDeviceSynchronize());
 			SyncVoltToHost();
 			SyncCurrToHost();
 			DoPreCurrentUpdates();
@@ -186,7 +178,7 @@ bool Engine_CUDA::IterateTS(unsigned int iterTS)
 
 		if (hasExts)
 		{
-			cudaDeviceSynchronize();
+			CUDA_CHECK(cudaDeviceSynchronize());
 			SyncCurrToHost();
 			DoPostCurrentUpdates();
 			Apply2Current();

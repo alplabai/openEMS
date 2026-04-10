@@ -1,5 +1,5 @@
 /*
-*	Copyright (C) 2025 alpLab (alplabai)
+*	Copyright (C) 2025-2026 alpLab (alplabai)
 *
 *	This program is free software: you can redistribute it and/or modify
 *	it under the terms of the GNU General Public License as published by
@@ -15,13 +15,7 @@
 #include "operator_ext_excitation.h"
 #include "FDTD/excitation.h"
 #include "FDTD/engine_cuda.h"
-#include "tools/openems_error.h"
-
-#define CUDA_CHECK(call) do { \
-	cudaError_t err = (call); \
-	if (err != cudaSuccess) \
-		throw openEMS_InternalError(std::string("CUDA error: ") + cudaGetErrorString(err)); \
-} while(0)
+#include "tools/cuda_check.h"
 
 // ============================================================
 // CUDA Kernels for sparse excitation
@@ -140,49 +134,57 @@ void Engine_Ext_Excitation_CUDA::InitCUDA()
 	else
 		m_signal_period = m_signal_length + 1;
 
-	// Upload voltage excitation data
-	if (m_Op_Exc->Volt_Count > 0)
+	try
 	{
-		size_t vc = m_Op_Exc->Volt_Count;
-		CUDA_CHECK(cudaMalloc(&d_Volt_amp,     vc * sizeof(float)));
-		CUDA_CHECK(cudaMalloc(&d_Volt_delay,   vc * sizeof(unsigned int)));
-		CUDA_CHECK(cudaMalloc(&d_Volt_dir,     vc * sizeof(unsigned short)));
-		CUDA_CHECK(cudaMalloc(&d_Volt_index_x, vc * sizeof(unsigned int)));
-		CUDA_CHECK(cudaMalloc(&d_Volt_index_y, vc * sizeof(unsigned int)));
-		CUDA_CHECK(cudaMalloc(&d_Volt_index_z, vc * sizeof(unsigned int)));
+		// Upload voltage excitation data
+		if (m_Op_Exc->Volt_Count > 0)
+		{
+			size_t vc = m_Op_Exc->Volt_Count;
+			CUDA_CHECK(cudaMalloc(&d_Volt_amp,     vc * sizeof(float)));
+			CUDA_CHECK(cudaMalloc(&d_Volt_delay,   vc * sizeof(unsigned int)));
+			CUDA_CHECK(cudaMalloc(&d_Volt_dir,     vc * sizeof(unsigned short)));
+			CUDA_CHECK(cudaMalloc(&d_Volt_index_x, vc * sizeof(unsigned int)));
+			CUDA_CHECK(cudaMalloc(&d_Volt_index_y, vc * sizeof(unsigned int)));
+			CUDA_CHECK(cudaMalloc(&d_Volt_index_z, vc * sizeof(unsigned int)));
 
-		CUDA_CHECK(cudaMemcpy(d_Volt_amp,     m_Op_Exc->Volt_amp,      vc * sizeof(float),          cudaMemcpyHostToDevice));
-		CUDA_CHECK(cudaMemcpy(d_Volt_delay,   m_Op_Exc->Volt_delay,    vc * sizeof(unsigned int),   cudaMemcpyHostToDevice));
-		CUDA_CHECK(cudaMemcpy(d_Volt_dir,     m_Op_Exc->Volt_dir,      vc * sizeof(unsigned short), cudaMemcpyHostToDevice));
-		CUDA_CHECK(cudaMemcpy(d_Volt_index_x, m_Op_Exc->Volt_index[0], vc * sizeof(unsigned int),   cudaMemcpyHostToDevice));
-		CUDA_CHECK(cudaMemcpy(d_Volt_index_y, m_Op_Exc->Volt_index[1], vc * sizeof(unsigned int),   cudaMemcpyHostToDevice));
-		CUDA_CHECK(cudaMemcpy(d_Volt_index_z, m_Op_Exc->Volt_index[2], vc * sizeof(unsigned int),   cudaMemcpyHostToDevice));
+			CUDA_CHECK(cudaMemcpy(d_Volt_amp,     m_Op_Exc->Volt_amp,      vc * sizeof(float),          cudaMemcpyHostToDevice));
+			CUDA_CHECK(cudaMemcpy(d_Volt_delay,   m_Op_Exc->Volt_delay,    vc * sizeof(unsigned int),   cudaMemcpyHostToDevice));
+			CUDA_CHECK(cudaMemcpy(d_Volt_dir,     m_Op_Exc->Volt_dir,      vc * sizeof(unsigned short), cudaMemcpyHostToDevice));
+			CUDA_CHECK(cudaMemcpy(d_Volt_index_x, m_Op_Exc->Volt_index[0], vc * sizeof(unsigned int),   cudaMemcpyHostToDevice));
+			CUDA_CHECK(cudaMemcpy(d_Volt_index_y, m_Op_Exc->Volt_index[1], vc * sizeof(unsigned int),   cudaMemcpyHostToDevice));
+			CUDA_CHECK(cudaMemcpy(d_Volt_index_z, m_Op_Exc->Volt_index[2], vc * sizeof(unsigned int),   cudaMemcpyHostToDevice));
+		}
+
+		// Upload current excitation data
+		if (m_Op_Exc->Curr_Count > 0)
+		{
+			size_t cc = m_Op_Exc->Curr_Count;
+			CUDA_CHECK(cudaMalloc(&d_Curr_amp,     cc * sizeof(float)));
+			CUDA_CHECK(cudaMalloc(&d_Curr_delay,   cc * sizeof(unsigned int)));
+			CUDA_CHECK(cudaMalloc(&d_Curr_dir,     cc * sizeof(unsigned short)));
+			CUDA_CHECK(cudaMalloc(&d_Curr_index_x, cc * sizeof(unsigned int)));
+			CUDA_CHECK(cudaMalloc(&d_Curr_index_y, cc * sizeof(unsigned int)));
+			CUDA_CHECK(cudaMalloc(&d_Curr_index_z, cc * sizeof(unsigned int)));
+
+			CUDA_CHECK(cudaMemcpy(d_Curr_amp,     m_Op_Exc->Curr_amp,      cc * sizeof(float),          cudaMemcpyHostToDevice));
+			CUDA_CHECK(cudaMemcpy(d_Curr_delay,   m_Op_Exc->Curr_delay,    cc * sizeof(unsigned int),   cudaMemcpyHostToDevice));
+			CUDA_CHECK(cudaMemcpy(d_Curr_dir,     m_Op_Exc->Curr_dir,      cc * sizeof(unsigned short), cudaMemcpyHostToDevice));
+			CUDA_CHECK(cudaMemcpy(d_Curr_index_x, m_Op_Exc->Curr_index[0], cc * sizeof(unsigned int),   cudaMemcpyHostToDevice));
+			CUDA_CHECK(cudaMemcpy(d_Curr_index_y, m_Op_Exc->Curr_index[1], cc * sizeof(unsigned int),   cudaMemcpyHostToDevice));
+			CUDA_CHECK(cudaMemcpy(d_Curr_index_z, m_Op_Exc->Curr_index[2], cc * sizeof(unsigned int),   cudaMemcpyHostToDevice));
+		}
+
+		// Upload signal waveforms
+		CUDA_CHECK(cudaMalloc(&d_exc_volt_signal, m_signal_length * sizeof(float)));
+		CUDA_CHECK(cudaMalloc(&d_exc_curr_signal, m_signal_length * sizeof(float)));
+		CUDA_CHECK(cudaMemcpy(d_exc_volt_signal, m_Op_Exc->m_Exc->GetVoltageSignal(), m_signal_length * sizeof(float), cudaMemcpyHostToDevice));
+		CUDA_CHECK(cudaMemcpy(d_exc_curr_signal, m_Op_Exc->m_Exc->GetCurrentSignal(), m_signal_length * sizeof(float), cudaMemcpyHostToDevice));
 	}
-
-	// Upload current excitation data
-	if (m_Op_Exc->Curr_Count > 0)
+	catch (...)
 	{
-		size_t cc = m_Op_Exc->Curr_Count;
-		CUDA_CHECK(cudaMalloc(&d_Curr_amp,     cc * sizeof(float)));
-		CUDA_CHECK(cudaMalloc(&d_Curr_delay,   cc * sizeof(unsigned int)));
-		CUDA_CHECK(cudaMalloc(&d_Curr_dir,     cc * sizeof(unsigned short)));
-		CUDA_CHECK(cudaMalloc(&d_Curr_index_x, cc * sizeof(unsigned int)));
-		CUDA_CHECK(cudaMalloc(&d_Curr_index_y, cc * sizeof(unsigned int)));
-		CUDA_CHECK(cudaMalloc(&d_Curr_index_z, cc * sizeof(unsigned int)));
-
-		CUDA_CHECK(cudaMemcpy(d_Curr_amp,     m_Op_Exc->Curr_amp,      cc * sizeof(float),          cudaMemcpyHostToDevice));
-		CUDA_CHECK(cudaMemcpy(d_Curr_delay,   m_Op_Exc->Curr_delay,    cc * sizeof(unsigned int),   cudaMemcpyHostToDevice));
-		CUDA_CHECK(cudaMemcpy(d_Curr_dir,     m_Op_Exc->Curr_dir,      cc * sizeof(unsigned short), cudaMemcpyHostToDevice));
-		CUDA_CHECK(cudaMemcpy(d_Curr_index_x, m_Op_Exc->Curr_index[0], cc * sizeof(unsigned int),   cudaMemcpyHostToDevice));
-		CUDA_CHECK(cudaMemcpy(d_Curr_index_y, m_Op_Exc->Curr_index[1], cc * sizeof(unsigned int),   cudaMemcpyHostToDevice));
-		CUDA_CHECK(cudaMemcpy(d_Curr_index_z, m_Op_Exc->Curr_index[2], cc * sizeof(unsigned int),   cudaMemcpyHostToDevice));
+		FreeCUDA();
+		throw;
 	}
-
-	// Upload signal waveforms
-	CUDA_CHECK(cudaMalloc(&d_exc_volt_signal, m_signal_length * sizeof(float)));
-	CUDA_CHECK(cudaMalloc(&d_exc_curr_signal, m_signal_length * sizeof(float)));
-	CUDA_CHECK(cudaMemcpy(d_exc_volt_signal, m_Op_Exc->m_Exc->GetVoltageSignal(), m_signal_length * sizeof(float), cudaMemcpyHostToDevice));
-	CUDA_CHECK(cudaMemcpy(d_exc_curr_signal, m_Op_Exc->m_Exc->GetCurrentSignal(), m_signal_length * sizeof(float), cudaMemcpyHostToDevice));
 
 	m_cuda_init = true;
 }

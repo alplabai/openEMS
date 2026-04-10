@@ -1,5 +1,5 @@
 /*
-*	Copyright (C) 2025 alpLab (alplabai)
+*	Copyright (C) 2025-2026 alpLab (alplabai)
 *
 *	This program is free software: you can redistribute it and/or modify
 *	it under the terms of the GNU General Public License as published by
@@ -14,13 +14,7 @@
 #include <cuda_runtime.h>
 #include "operator_ext_upml.h"
 #include "FDTD/engine_cuda.h"
-#include "tools/openems_error.h"
-
-#define CUDA_CHECK(call) do { \
-	cudaError_t err = (call); \
-	if (err != cudaSuccess) \
-		throw openEMS_InternalError(std::string("CUDA error: ") + cudaGetErrorString(err)); \
-} while(0)
+#include "tools/cuda_check.h"
 
 // ============================================================
 // CUDA Kernels for PML flux updates
@@ -218,29 +212,37 @@ void Engine_Ext_UPML_CUDA::InitCUDA()
 	m_pml_totalSize = 3 * (size_t)m_pml_Nx * m_pml_Ny * m_pml_Nz;
 	size_t bytes = m_pml_totalSize * sizeof(float);
 
-	// Allocate device arrays for PML coefficients
-	CUDA_CHECK(cudaMalloc(&d_vv,   bytes));
-	CUDA_CHECK(cudaMalloc(&d_vvfo, bytes));
-	CUDA_CHECK(cudaMalloc(&d_vvfn, bytes));
-	CUDA_CHECK(cudaMalloc(&d_ii,   bytes));
-	CUDA_CHECK(cudaMalloc(&d_iifo, bytes));
-	CUDA_CHECK(cudaMalloc(&d_iifn, bytes));
+	try
+	{
+		// Allocate device arrays for PML coefficients
+		CUDA_CHECK(cudaMalloc(&d_vv,   bytes));
+		CUDA_CHECK(cudaMalloc(&d_vvfo, bytes));
+		CUDA_CHECK(cudaMalloc(&d_vvfn, bytes));
+		CUDA_CHECK(cudaMalloc(&d_ii,   bytes));
+		CUDA_CHECK(cudaMalloc(&d_iifo, bytes));
+		CUDA_CHECK(cudaMalloc(&d_iifn, bytes));
 
-	// Allocate device arrays for flux state
-	CUDA_CHECK(cudaMalloc(&d_volt_flux, bytes));
-	CUDA_CHECK(cudaMalloc(&d_curr_flux, bytes));
+		// Allocate device arrays for flux state
+		CUDA_CHECK(cudaMalloc(&d_volt_flux, bytes));
+		CUDA_CHECK(cudaMalloc(&d_curr_flux, bytes));
 
-	// Upload PML coefficients (read-only on GPU)
-	CUDA_CHECK(cudaMemcpy(d_vv,   m_Op_UPML->vv.data(),   bytes, cudaMemcpyHostToDevice));
-	CUDA_CHECK(cudaMemcpy(d_vvfo, m_Op_UPML->vvfo.data(), bytes, cudaMemcpyHostToDevice));
-	CUDA_CHECK(cudaMemcpy(d_vvfn, m_Op_UPML->vvfn.data(), bytes, cudaMemcpyHostToDevice));
-	CUDA_CHECK(cudaMemcpy(d_ii,   m_Op_UPML->ii.data(),   bytes, cudaMemcpyHostToDevice));
-	CUDA_CHECK(cudaMemcpy(d_iifo, m_Op_UPML->iifo.data(), bytes, cudaMemcpyHostToDevice));
-	CUDA_CHECK(cudaMemcpy(d_iifn, m_Op_UPML->iifn.data(), bytes, cudaMemcpyHostToDevice));
+		// Upload PML coefficients (read-only on GPU)
+		CUDA_CHECK(cudaMemcpy(d_vv,   m_Op_UPML->vv.data(),   bytes, cudaMemcpyHostToDevice));
+		CUDA_CHECK(cudaMemcpy(d_vvfo, m_Op_UPML->vvfo.data(), bytes, cudaMemcpyHostToDevice));
+		CUDA_CHECK(cudaMemcpy(d_vvfn, m_Op_UPML->vvfn.data(), bytes, cudaMemcpyHostToDevice));
+		CUDA_CHECK(cudaMemcpy(d_ii,   m_Op_UPML->ii.data(),   bytes, cudaMemcpyHostToDevice));
+		CUDA_CHECK(cudaMemcpy(d_iifo, m_Op_UPML->iifo.data(), bytes, cudaMemcpyHostToDevice));
+		CUDA_CHECK(cudaMemcpy(d_iifn, m_Op_UPML->iifn.data(), bytes, cudaMemcpyHostToDevice));
 
-	// Initialize flux to zero
-	CUDA_CHECK(cudaMemset(d_volt_flux, 0, bytes));
-	CUDA_CHECK(cudaMemset(d_curr_flux, 0, bytes));
+		// Initialize flux to zero
+		CUDA_CHECK(cudaMemset(d_volt_flux, 0, bytes));
+		CUDA_CHECK(cudaMemset(d_curr_flux, 0, bytes));
+	}
+	catch (...)
+	{
+		FreeCUDA();
+		throw;
+	}
 }
 
 void Engine_Ext_UPML_CUDA::DoPreVoltageUpdates()

@@ -1,5 +1,5 @@
 /*
-*	Copyright (C) 2025 alpLab (alplabai)
+*	Copyright (C) 2025-2026 alpLab (alplabai)
 *
 *	This program is free software: you can redistribute it and/or modify
 *	it under the terms of the GNU General Public License as published by
@@ -33,8 +33,6 @@
  *   y = (linear_idx / Nz) % Ny
  *   z = linear_idx % Nz
  */
-
-#define IDX(n, x, y, z, NyNz, Nz) ((n) * stride_n + (x) * (NyNz) + (y) * (Nz) + (z))
 
 /**
  * E-field (voltage) update kernel.

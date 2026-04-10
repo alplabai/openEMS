@@ -15,24 +15,24 @@
 *	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef OPERATOR_CUDA_H
-#define OPERATOR_CUDA_H
+#ifndef CUDA_CHECK_H
+#define CUDA_CHECK_H
 
 #ifdef CUDA_SUPPORT
 
-#include "operator.h"
+#include <cuda_runtime.h>
+#include <iostream>
+#include <string>
+#include "openems_error.h"
 
-class Operator_CUDA : public Operator
-{
-public:
-	static Operator_CUDA* New();
-	virtual ~Operator_CUDA();
-
-	virtual Engine* CreateEngine();
-
-protected:
-	Operator_CUDA();
-};
+#define CUDA_CHECK(call) do { \
+	cudaError_t err = (call); \
+	if (err != cudaSuccess) { \
+		std::cerr << "CUDA error in " << __FILE__ << ":" << __LINE__ << ": " \
+		          << cudaGetErrorString(err) << std::endl; \
+		throw openEMS_InternalError(std::string("CUDA error: ") + cudaGetErrorString(err)); \
+	} \
+} while(0)
 
 #endif // CUDA_SUPPORT
-#endif // OPERATOR_CUDA_H
+#endif // CUDA_CHECK_H

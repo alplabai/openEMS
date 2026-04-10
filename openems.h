@@ -159,15 +159,7 @@ protected:
 
 	bool m_Abort;
 
-#if defined(MPI_SUPPORT) && defined(CUDA_SUPPORT)
 	enum EngineType {EngineType_Basic, EngineType_SSE, EngineType_SSE_Compressed, EngineType_Multithreaded, EngineType_MPI, EngineType_CUDA};
-#elif defined(MPI_SUPPORT)
-	enum EngineType {EngineType_Basic, EngineType_SSE, EngineType_SSE_Compressed, EngineType_Multithreaded, EngineType_MPI};
-#elif defined(CUDA_SUPPORT)
-	enum EngineType {EngineType_Basic, EngineType_SSE, EngineType_SSE_Compressed, EngineType_Multithreaded, EngineType_CUDA};
-#else
-	enum EngineType {EngineType_Basic, EngineType_SSE, EngineType_SSE_Compressed, EngineType_Multithreaded};
-#endif
 	EngineType m_engine;
 	unsigned int m_engine_numThreads;
 
